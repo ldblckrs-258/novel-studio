@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BookOpenIcon,
   DatabaseIcon,
+  HistoryIcon,
   HomeIcon,
   LibraryIcon,
   PenLineIcon,
@@ -42,6 +43,10 @@ export const navConfig = [
     href: "/settings/data",
     icon: DatabaseIcon,
   },
+] as const;
+
+export const miscNav = [
+  { title: "Nhật ký thay đổi", href: "/changelog", icon: HistoryIcon },
 ] as const;
 
 export function AppSidebar() {
@@ -141,6 +146,28 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {settingsNav.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === item.href}
+                    tooltip={item.title}
+                  >
+                    <Link href={item.href}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Khác</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {miscNav.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild

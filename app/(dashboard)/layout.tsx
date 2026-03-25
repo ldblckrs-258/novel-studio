@@ -1,6 +1,6 @@
 "use client";
 
-import { AppSidebar, navConfig } from "@/components/app-sidebar";
+import { AppSidebar, miscNav, navConfig } from "@/components/app-sidebar";
 import { ChatPanel } from "@/components/chat-panel";
 import {
   Breadcrumb,
@@ -20,7 +20,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const pageTitles: Record<string, string> = Object.fromEntries(
-  navConfig.map((item) => [item.href, item.title]),
+  [...navConfig, ...miscNav].map((item) => [item.href, item.title]),
 );
 
 export default function DashboardLayout({
