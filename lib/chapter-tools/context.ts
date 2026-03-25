@@ -32,9 +32,9 @@ export async function buildTranslateContext(
 export async function buildMinimalContext(
   novelId: string,
 ): Promise<string | null> {
-  const [characters, analysis] = await Promise.all([
+  const [characters, novel] = await Promise.all([
     db.characters.where("novelId").equals(novelId).toArray(),
-    db.novelAnalyses.where("novelId").equals(novelId).first(),
+    db.novels.get(novelId),
   ]);
 
   const parts: string[] = [];
@@ -44,13 +44,13 @@ export async function buildMinimalContext(
     parts.push(`Nhân vật: ${names}`);
   }
 
-  if (analysis?.keyLocations?.length) {
-    const locations = analysis.keyLocations.map((l) => l.name).join(", ");
+  if (novel?.keyLocations?.length) {
+    const locations = novel.keyLocations.map((l) => l.name).join(", ");
     parts.push(`Địa danh: ${locations}`);
   }
 
-  if (analysis?.factions?.length) {
-    const factions = analysis.factions.map((f) => f.name).join(", ");
+  if (novel?.factions?.length) {
+    const factions = novel.factions.map((f) => f.name).join(", ");
     parts.push(`Thế lực: ${factions}`);
   }
 

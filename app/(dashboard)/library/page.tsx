@@ -1,12 +1,5 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useNovels, deleteNovel } from "@/lib/hooks";
-import { type Novel } from "@/lib/db";
-import { exportNovel, downloadNovelJson, importNovel } from "@/lib/novel-io";
-import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,11 +19,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   Empty,
   EmptyDescription,
@@ -58,6 +46,14 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { type Novel } from "@/lib/db";
+import { deleteNovel, useNovels } from "@/lib/hooks";
+import { downloadNovelJson, exportNovel, importNovel } from "@/lib/novel-io";
+import {
   BookOpenIcon,
   DownloadIcon,
   GridIcon,
@@ -68,6 +64,10 @@ import {
   UploadIcon,
   XIcon,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 type SortField = "updatedAt" | "createdAt" | "title";
 type SortDirection = "asc" | "desc";
@@ -75,7 +75,10 @@ type ViewMode = "grid" | "list";
 
 const ITEMS_PER_PAGE = 12;
 
-const SORT_OPTIONS: { value: `${SortField}-${SortDirection}`; label: string }[] = [
+const SORT_OPTIONS: {
+  value: `${SortField}-${SortDirection}`;
+  label: string;
+}[] = [
   { value: "updatedAt-desc", label: "Cập nhật gần nhất" },
   { value: "updatedAt-asc", label: "Cập nhật cũ nhất" },
   { value: "createdAt-desc", label: "Mới tạo nhất" },
@@ -84,7 +87,11 @@ const SORT_OPTIONS: { value: `${SortField}-${SortDirection}`; label: string }[] 
   { value: "title-desc", label: "Tên Z → A" },
 ];
 
-function sortNovels(novels: Novel[], field: SortField, direction: SortDirection) {
+function sortNovels(
+  novels: Novel[],
+  field: SortField,
+  direction: SortDirection,
+) {
   return [...novels].sort((a, b) => {
     let cmp: number;
     if (field === "title") {
@@ -110,7 +117,8 @@ export default function LibraryPage() {
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<`${SortField}-${SortDirection}`>("updatedAt-desc");
+  const [sort, setSort] =
+    useState<`${SortField}-${SortDirection}`>("updatedAt-desc");
   const [genreFilter, setGenreFilter] = useState<string>("all");
   const [view, setView] = useState<ViewMode>("grid");
   const [page, setPage] = useState(1);
@@ -137,7 +145,7 @@ export default function LibraryPage() {
       result = result.filter(
         (n) =>
           n.title.toLowerCase().includes(q) ||
-          n.description?.toLowerCase().includes(q)
+          n.description?.toLowerCase().includes(q),
       );
     }
 
@@ -155,7 +163,7 @@ export default function LibraryPage() {
   const currentPage = Math.min(page, totalPages);
   const paginated = filtered.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+    currentPage * ITEMS_PER_PAGE,
   );
 
   const handleSearch = (value: string) => {
@@ -193,18 +201,23 @@ export default function LibraryPage() {
     }
   }, [deleteTarget]);
 
-  const handleImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // Reset so the same file can be re-selected
-    e.target.value = "";
-    try {
-      await importNovel(file);
-      toast.success("Đã nhập tiểu thuyết thành công!");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Nhập tiểu thuyết thất bại.");
-    }
-  }, []);
+  const handleImport = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      // Reset so the same file can be re-selected
+      e.target.value = "";
+      try {
+        await importNovel(file);
+        toast.success("Đã nhập tiểu thuyết thành công!");
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Nhập tiểu thuyết thất bại.",
+        );
+      }
+    },
+    [],
+  );
 
   // Loading state
   if (novels === undefined) {
@@ -380,9 +393,15 @@ export default function LibraryPage() {
               {paginated.map((novel) => (
                 <Card
                   key={novel.id}
-                  className="group cursor-pointer h-full transition-colors hover:bg-muted/30"
+                  className="relative group cursor-pointer h-full overflow-hidden transition-colors hover:bg-muted/30"
                   onClick={() => router.push(`/novels/${novel.id}`)}
                 >
+                  {novel.color && (
+                    <div
+                      className="absolute top-0 left-0 right-0 h-1.5"
+                      style={{ backgroundColor: novel.color }}
+                    />
+                  )}
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="line-clamp-1">
@@ -394,15 +413,24 @@ export default function LibraryPage() {
                         onDelete={setDeleteTarget}
                       />
                     </div>
-                    {novel.genre && (
-                      <CardDescription>
-                        <Badge variant="secondary" className="text-[11px]">
-                          {novel.genre}
-                        </Badge>
-                      </CardDescription>
+                    {novel.author && (
+                      <CardDescription>{novel.author}</CardDescription>
                     )}
                   </CardHeader>
                   <CardContent>
+                    {novel.genres && novel.genres.length > 0 && (
+                      <div className="mb-2 flex flex-wrap gap-1">
+                        {novel.genres.slice(0, 3).map((g) => (
+                          <Badge
+                            key={g}
+                            variant="secondary"
+                            className="text-[11px]"
+                          >
+                            {g}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                     <p className="line-clamp-2 text-sm text-muted-foreground">
                       {novel.description || "Chưa có mô tả."}
                     </p>
@@ -425,6 +453,12 @@ export default function LibraryPage() {
                   onClick={() => router.push(`/novels/${novel.id}`)}
                 >
                   <CardContent className="flex items-center gap-4 py-3">
+                    {novel.color && (
+                      <div
+                        className="size-3 shrink-0 rounded-full"
+                        style={{ backgroundColor: novel.color }}
+                      />
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
                         {novel.title}
@@ -433,10 +467,18 @@ export default function LibraryPage() {
                         {novel.description || "Chưa có mô tả."}
                       </p>
                     </div>
-                    {novel.genre && (
-                      <Badge variant="secondary" className="shrink-0 text-[11px]">
-                        {novel.genre}
-                      </Badge>
+                    {novel.genres && novel.genres.length > 0 && (
+                      <div className="flex shrink-0 gap-1">
+                        {novel.genres.slice(0, 3).map((g) => (
+                          <Badge
+                            key={g}
+                            variant="secondary"
+                            className="text-[11px]"
+                          >
+                            {g}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                     <span className="shrink-0 text-xs text-muted-foreground/60">
                       {formatDate(novel.updatedAt)}
@@ -489,12 +531,14 @@ export default function LibraryPage() {
                           {item}
                         </PaginationLink>
                       </PaginationItem>
-                    )
+                    ),
                   )}
                   <PaginationItem>
                     <PaginationNext
                       text="Sau"
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      onClick={() =>
+                        setPage((p) => Math.min(totalPages, p + 1))
+                      }
                       aria-disabled={currentPage === totalPages}
                       className={
                         currentPage === totalPages
@@ -519,8 +563,9 @@ export default function LibraryPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Xóa tiểu thuyết?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tiểu thuyết <strong>&ldquo;{deleteTarget?.title}&rdquo;</strong> cùng
-              toàn bộ chương, cảnh, nhân vật và ghi chú sẽ bị xóa vĩnh viễn.
+              Tiểu thuyết <strong>&ldquo;{deleteTarget?.title}&rdquo;</strong>{" "}
+              cùng toàn bộ chương, cảnh, nhân vật và ghi chú sẽ bị xóa vĩnh
+              viễn.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -5,20 +5,20 @@ import {
   type Scene,
   type Character,
   type Note,
-  type NovelAnalysis,
 } from "@/lib/db";
 
 // ─── Export Format ──────────────────────────────────────────
 
 export interface NovelExportData {
-  version: 1;
+  version: 1 | 2;
   exportedAt: string;
   novel: Novel;
   chapters: Chapter[];
   scenes: Scene[];
   characters: Character[];
   notes: Note[];
-  analyses: NovelAnalysis[];
+  /** @deprecated v1 only — analysis data is now on Novel */
+  analyses?: unknown[];
 }
 
 // ─── Export ─────────────────────────────────────────────────
@@ -27,23 +27,21 @@ export async function exportNovel(novelId: string): Promise<NovelExportData> {
   const novel = await db.novels.get(novelId);
   if (!novel) throw new Error("Novel not found");
 
-  const [chapters, scenes, characters, notes, analyses] = await Promise.all([
+  const [chapters, scenes, characters, notes] = await Promise.all([
     db.chapters.where("novelId").equals(novelId).toArray(),
     db.scenes.where("novelId").equals(novelId).toArray(),
     db.characters.where("novelId").equals(novelId).toArray(),
     db.notes.where("novelId").equals(novelId).toArray(),
-    db.novelAnalyses.where("novelId").equals(novelId).toArray(),
   ]);
 
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     novel,
     chapters,
     scenes,
     characters,
     notes,
-    analyses,
   };
 }
 
@@ -82,9 +80,31 @@ export async function importNovel(file: File): Promise<string> {
   const chapterIdMap = new Map<string, string>();
   const characterIdMap = new Map<string, string>();
 
-  // Novel
+  // Novel — merge v1 analysis data if present
+  const novelData = { ...data.novel };
+  if (data.version === 1 && Array.isArray(data.analyses) && data.analyses.length > 0) {
+    const a = data.analyses[0] as Record<string, unknown>;
+    if (a) {
+      if (a.genres) novelData.genres = a.genres as string[];
+      if (a.tags) novelData.tags = a.tags as string[];
+      if (a.synopsis) novelData.synopsis = a.synopsis as string;
+      if (a.worldOverview) novelData.worldOverview = a.worldOverview as string;
+      if (a.powerSystem) novelData.powerSystem = a.powerSystem as string;
+      if (a.storySetting) novelData.storySetting = a.storySetting as string;
+      if (a.timePeriod) novelData.timePeriod = a.timePeriod as string;
+      if (a.factions) novelData.factions = a.factions as Novel["factions"];
+      if (a.keyLocations) novelData.keyLocations = a.keyLocations as Novel["keyLocations"];
+      if (a.worldRules) novelData.worldRules = a.worldRules as string;
+      if (a.technologyLevel) novelData.technologyLevel = a.technologyLevel as string;
+      if (a.analysisStatus) novelData.analysisStatus = a.analysisStatus as Novel["analysisStatus"];
+      if (a.chaptersAnalyzed) novelData.chaptersAnalyzed = a.chaptersAnalyzed as number;
+      if (a.totalChapters) novelData.totalChapters = a.totalChapters as number;
+      if (a.error) novelData.analysisError = a.error as string;
+    }
+  }
+
   await db.novels.add({
-    ...data.novel,
+    ...novelData,
     id: novelId,
     createdAt: now,
     updatedAt: now,
@@ -160,19 +180,6 @@ export async function importNovel(file: File): Promise<string> {
         novelId,
         createdAt: new Date(note.createdAt),
         updatedAt: new Date(note.updatedAt),
-      });
-    }
-  }
-
-  // Analyses
-  if (data.analyses?.length) {
-    for (const analysis of data.analyses) {
-      await db.novelAnalyses.add({
-        ...analysis,
-        id: crypto.randomUUID(),
-        novelId,
-        createdAt: new Date(analysis.createdAt),
-        updatedAt: new Date(analysis.updatedAt),
       });
     }
   }

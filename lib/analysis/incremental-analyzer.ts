@@ -93,38 +93,16 @@ export async function analyzeNovelIncremental({
     (a, b) => a.order - b.order,
   );
 
-  // Get or create analysis record
-  const existingAnalysis = await db.novelAnalyses
-    .where("novelId")
-    .equals(novelId)
-    .first();
-
-  const analysisId = existingAnalysis?.id ?? crypto.randomUUID();
   const now = new Date();
   const totalToAnalyze = needsAnalysis.length;
 
-  if (existingAnalysis) {
-    await db.novelAnalyses.update(analysisId, {
-      analysisStatus: "analyzing",
-      chaptersAnalyzed: 0,
-      totalChapters: totalToAnalyze,
-      error: undefined,
-      updatedAt: now,
-    });
-  } else {
-    await db.novelAnalyses.add({
-      id: analysisId,
-      novelId,
-      genres: [],
-      tags: [],
-      synopsis: "",
-      analysisStatus: "analyzing",
-      chaptersAnalyzed: 0,
-      totalChapters: totalToAnalyze,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
+  await db.novels.update(novelId, {
+    analysisStatus: "analyzing",
+    chaptersAnalyzed: 0,
+    totalChapters: totalToAnalyze,
+    analysisError: undefined,
+    updatedAt: now,
+  });
 
   const errors: AnalysisError[] = [];
 
@@ -231,7 +209,7 @@ export async function analyzeNovelIncremental({
           chaptersCompleted,
           totalChapters: totalToAnalyze,
         });
-        await db.novelAnalyses.update(analysisId, {
+        await db.novels.update(novelId, {
           chaptersAnalyzed: chaptersCompleted,
           updatedAt: new Date(),
         });
@@ -275,7 +253,7 @@ export async function analyzeNovelIncremental({
         totalChapters: totalToAnalyze,
       });
 
-      const currentAnalysis = await db.novelAnalyses.get(analysisId);
+      const currentNovel = await db.novels.get(novelId);
 
       const newSummariesText = newChapterResults
         .map((cr) => `### ${cr.title}\n${cr.result.summary}`)
@@ -293,14 +271,14 @@ Bạn có thể gọi nhiều công cụ cùng lúc. Trả lời bằng Tiếng 
         prompt: `## Phân tích hiện tại
 ${JSON.stringify(
   {
-    genres: currentAnalysis?.genres ?? [],
-    tags: currentAnalysis?.tags ?? [],
-    synopsis: currentAnalysis?.synopsis ?? "",
-    worldOverview: currentAnalysis?.worldOverview ?? "",
-    powerSystem: currentAnalysis?.powerSystem,
-    storySetting: currentAnalysis?.storySetting ?? "",
-    factions: currentAnalysis?.factions ?? [],
-    keyLocations: currentAnalysis?.keyLocations ?? [],
+    genres: currentNovel?.genres ?? [],
+    tags: currentNovel?.tags ?? [],
+    synopsis: currentNovel?.synopsis ?? "",
+    worldOverview: currentNovel?.worldOverview ?? "",
+    powerSystem: currentNovel?.powerSystem,
+    storySetting: currentNovel?.storySetting ?? "",
+    factions: currentNovel?.factions ?? [],
+    keyLocations: currentNovel?.keyLocations ?? [],
   },
   null,
   2,
@@ -320,10 +298,10 @@ Dựa trên các chương mới, hãy gọi các công cụ phù hợp để c�
         for (const tc of step.toolCalls as any[]) {
           switch (tc.toolName) {
             case "update_synopsis":
-              await db.novelAnalyses.update(analysisId, { synopsis: (tc as any).input.synopsis, updatedAt: new Date() });
+              await db.novels.update(novelId, { synopsis: (tc as any).input.synopsis, updatedAt: new Date() });
               break;
             case "update_genres_tags":
-              await db.novelAnalyses.update(analysisId, { genres: (tc as any).input.genres, tags: (tc as any).input.tags, updatedAt: new Date() });
+              await db.novels.update(novelId, { genres: (tc as any).input.genres, tags: (tc as any).input.tags, updatedAt: new Date() });
               break;
             case "update_world_building": {
               const updates: any = { updatedAt: new Date() };
@@ -333,29 +311,29 @@ Dựa trên các chương mới, hãy gọi các công cụ phù hợp để c�
               if ((tc as any).input.timePeriod !== undefined) updates.timePeriod = (tc as any).input.timePeriod ?? undefined;
               if ((tc as any).input.worldRules !== undefined) updates.worldRules = (tc as any).input.worldRules ?? undefined;
               if ((tc as any).input.technologyLevel !== undefined) updates.technologyLevel = (tc as any).input.technologyLevel ?? undefined;
-              await db.novelAnalyses.update(analysisId, updates);
+              await db.novels.update(novelId, updates);
               break;
             }
             case "add_faction": {
-              const a = await db.novelAnalyses.get(analysisId);
-              await db.novelAnalyses.update(analysisId, { factions: [...(a?.factions ?? []), (tc as any).input], updatedAt: new Date() });
+              const n = await db.novels.get(novelId);
+              await db.novels.update(novelId, { factions: [...(n?.factions ?? []), (tc as any).input], updatedAt: new Date() });
               break;
             }
             case "update_faction": {
-              const a = await db.novelAnalyses.get(analysisId);
-              const factions = (a?.factions ?? []).map((f) => f.name.toLowerCase() === (tc as any).input.name.toLowerCase() ? { name: f.name, description: (tc as any).input.description } : f);
-              await db.novelAnalyses.update(analysisId, { factions, updatedAt: new Date() });
+              const n = await db.novels.get(novelId);
+              const factions = (n?.factions ?? []).map((f) => f.name.toLowerCase() === (tc as any).input.name.toLowerCase() ? { name: f.name, description: (tc as any).input.description } : f);
+              await db.novels.update(novelId, { factions, updatedAt: new Date() });
               break;
             }
             case "add_location": {
-              const a = await db.novelAnalyses.get(analysisId);
-              await db.novelAnalyses.update(analysisId, { keyLocations: [...(a?.keyLocations ?? []), (tc as any).input], updatedAt: new Date() });
+              const n = await db.novels.get(novelId);
+              await db.novels.update(novelId, { keyLocations: [...(n?.keyLocations ?? []), (tc as any).input], updatedAt: new Date() });
               break;
             }
             case "update_location": {
-              const a = await db.novelAnalyses.get(analysisId);
-              const locs = (a?.keyLocations ?? []).map((l) => l.name.toLowerCase() === (tc as any).input.name.toLowerCase() ? { name: l.name, description: (tc as any).input.description } : l);
-              await db.novelAnalyses.update(analysisId, { keyLocations: locs, updatedAt: new Date() });
+              const n = await db.novels.get(novelId);
+              const locs = (n?.keyLocations ?? []).map((l) => l.name.toLowerCase() === (tc as any).input.name.toLowerCase() ? { name: l.name, description: (tc as any).input.description } : l);
+              await db.novels.update(novelId, { keyLocations: locs, updatedAt: new Date() });
               break;
             }
           }
@@ -479,9 +457,9 @@ Không tạo lại nhân vật đã có mà không thay đổi. Trả lời bằ
   }
 
   // ── Mark Complete ───────────────────────────────────────
-  await db.novelAnalyses.update(analysisId, {
+  await db.novels.update(novelId, {
     analysisStatus: "completed",
-    error: errors.length > 0
+    analysisError: errors.length > 0
       ? errors.map((e) => e.chapterTitle ? `[${e.chapterTitle}] ${e.message}` : `[${e.phase}] ${e.message}`).join("; ")
       : undefined,
     updatedAt: new Date(),

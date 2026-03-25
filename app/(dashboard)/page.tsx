@@ -1,5 +1,7 @@
 "use client";
 
+import { CreateNovelDialog } from "@/components/create-novel-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,9 +20,11 @@ import {
 import { useNovels } from "@/lib/hooks";
 import { BookOpenIcon, PlusIcon, UploadIcon } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 export default function DashboardPage() {
   const novels = useNovels();
+  const [createOpen, setCreateOpen] = useState(false);
 
   return (
     <main className="mx-auto w-full max-w-4xl px-6 py-8">
@@ -34,7 +38,10 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="cursor-pointer border-dashed transition-colors hover:border-foreground/20 hover:bg-muted/50">
+        <Card
+          className="cursor-pointer border-dashed transition-colors hover:border-foreground/20 hover:bg-muted/50"
+          onClick={() => setCreateOpen(true)}
+        >
           <CardContent className="flex flex-col items-center justify-center py-8 text-center">
             <div className="mb-3 flex size-10 items-center justify-center rounded-lg bg-primary/10">
               <PlusIcon className="size-5 text-primary" />
@@ -91,14 +98,33 @@ export default function DashboardPage() {
         ) : (
           novels.slice(0, 5).map((novel) => (
             <Link key={novel.id} href={`/novels/${novel.id}`}>
-              <Card className="h-full transition-colors hover:bg-muted/30">
+              <Card className="relative h-full overflow-hidden transition-colors hover:bg-muted/30">
+                {novel.color && (
+                  <div
+                    className="absolute top-0 left-0 right-0 h-1.5"
+                    style={{ backgroundColor: novel.color }}
+                  />
+                )}
                 <CardHeader>
                   <CardTitle>{novel.title}</CardTitle>
-                  {novel.genre && (
-                    <CardDescription>{novel.genre}</CardDescription>
+                  {novel.author && (
+                    <CardDescription>{novel.author}</CardDescription>
                   )}
                 </CardHeader>
                 <CardContent>
+                  {novel.genres && novel.genres.length > 0 && (
+                    <div className="mb-2 flex flex-wrap gap-1">
+                      {novel.genres.slice(0, 3).map((g) => (
+                        <Badge
+                          key={g}
+                          variant="secondary"
+                          className="text-[11px]"
+                        >
+                          {g}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                   <p className="line-clamp-2 text-sm text-muted-foreground">
                     {novel.description || "Chưa có mô tả."}
                   </p>
@@ -116,6 +142,8 @@ export default function DashboardPage() {
           </Button>
         </div>
       )}
+
+      <CreateNovelDialog open={createOpen} onOpenChange={setCreateOpen} />
     </main>
   );
 }

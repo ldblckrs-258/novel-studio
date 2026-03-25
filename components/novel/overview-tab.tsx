@@ -2,23 +2,22 @@
 
 import { Badge } from "@/components/ui/badge";
 import { EditableText } from "./editable-text";
-import type { NovelAnalysis } from "@/lib/db";
-import { updateNovelAnalysis } from "@/lib/hooks";
+import type { Novel } from "@/lib/db";
+import { updateNovel } from "@/lib/hooks";
 
 export function OverviewTab({
-  analysis,
+  novel,
   chapterCount,
   wordCount,
   characterCount,
 }: {
-  analysis: NovelAnalysis | null | undefined;
+  novel: Novel;
   chapterCount: number;
   wordCount: number;
   characterCount: number;
 }) {
   const save = (field: string, value: unknown) => {
-    if (!analysis) return;
-    updateNovelAnalysis(analysis.id, { [field]: value });
+    updateNovel(novel.id, { [field]: value });
   };
 
   return (
@@ -36,7 +35,7 @@ export function OverviewTab({
           Tóm tắt
         </p>
         <EditableText
-          value={analysis?.synopsis ?? ""}
+          value={novel.synopsis ?? ""}
           onSave={(v) => save("synopsis", v)}
           placeholder="Chưa có tóm tắt. Chạy phân tích hoặc nhấn để viết..."
           multiline

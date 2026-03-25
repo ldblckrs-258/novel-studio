@@ -5,7 +5,6 @@ import {
   type Scene,
   type Character,
   type Note,
-  type NovelAnalysis,
   type AIProvider,
   type AIModel,
   type ChatSettings,
@@ -23,7 +22,7 @@ import {
 // ─── Constants ──────────────────────────────────────────────
 
 const CURRENT_EXPORT_VERSION = 1;
-export const CURRENT_DB_VERSION = 8;
+export const CURRENT_DB_VERSION = 10;
 
 const NOVEL_SCOPED_TABLES = [
   "novels",
@@ -31,7 +30,6 @@ const NOVEL_SCOPED_TABLES = [
   "scenes",
   "characters",
   "notes",
-  "novelAnalyses",
 ] as const;
 
 const AI_TABLES = [
@@ -54,7 +52,6 @@ const IMPORT_ORDER = [
   "chapters",
   "scenes",
   "notes",
-  "novelAnalyses",
   "chatSettings",
   "analysisSettings",
   "conversations",
@@ -67,7 +64,6 @@ export const TABLE_LABELS: Record<string, string> = {
   scenes: "Cảnh",
   characters: "Nhân vật",
   notes: "Ghi chú",
-  novelAnalyses: "Phân tích",
   aiProviders: "Nhà cung cấp AI",
   aiModels: "Mô hình AI",
   chatSettings: "Cài đặt chat",
@@ -83,7 +79,6 @@ const DATE_FIELDS: Record<string, string[]> = {
   scenes: ["createdAt", "updatedAt"],
   characters: ["createdAt", "updatedAt"],
   notes: ["createdAt", "updatedAt"],
-  novelAnalyses: ["createdAt", "updatedAt"],
   aiProviders: ["createdAt", "updatedAt"],
   aiModels: ["createdAt"],
   conversations: ["createdAt", "updatedAt"],
@@ -98,7 +93,6 @@ const FK_FIELDS: Record<string, Record<string, string>> = {
   scenes: { novelId: "novels", chapterId: "chapters" },
   characters: { novelId: "novels" },
   notes: { novelId: "novels" },
-  novelAnalyses: { novelId: "novels" },
   aiModels: { providerId: "aiProviders" },
   conversations: { providerId: "aiProviders", modelId: "aiModels" },
   conversationMessages: { conversationId: "conversations" },
@@ -120,7 +114,6 @@ type TableData = {
   scenes?: Scene[];
   characters?: Character[];
   notes?: Note[];
-  novelAnalyses?: NovelAnalysis[];
   aiProviders?: AIProvider[];
   aiModels?: AIModel[];
   chatSettings?: ChatSettings[];

@@ -112,37 +112,15 @@ export async function analyzeNovel({
   const sampled = sampleChapters(allChapters, budget.chapterSampleRate);
   const totalChapters = sampled.length;
 
-  // Create or update analysis record
-  const existingAnalysis = await db.novelAnalyses
-    .where("novelId")
-    .equals(novelId)
-    .first();
-
-  const analysisId = existingAnalysis?.id ?? crypto.randomUUID();
+  // Update novel analysis status
   const now = new Date();
-
-  if (existingAnalysis) {
-    await db.novelAnalyses.update(analysisId, {
-      analysisStatus: "analyzing",
-      chaptersAnalyzed: 0,
-      totalChapters,
-      error: undefined,
-      updatedAt: now,
-    });
-  } else {
-    await db.novelAnalyses.add({
-      id: analysisId,
-      novelId,
-      genres: [],
-      tags: [],
-      synopsis: "",
-      analysisStatus: "analyzing",
-      chaptersAnalyzed: 0,
-      totalChapters,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
+  await db.novels.update(novelId, {
+    analysisStatus: "analyzing",
+    chaptersAnalyzed: 0,
+    totalChapters,
+    analysisError: undefined,
+    updatedAt: now,
+  });
 
   const errors: AnalysisError[] = [];
 
@@ -250,7 +228,7 @@ export async function analyzeNovel({
           chaptersCompleted,
           totalChapters,
         });
-        await db.novelAnalyses.update(analysisId, {
+        await db.novels.update(novelId, {
           chaptersAnalyzed: chaptersCompleted,
           updatedAt: new Date(),
         });
@@ -339,7 +317,7 @@ export async function analyzeNovel({
         abortSignal: signal,
       });
 
-      await db.novelAnalyses.update(analysisId, {
+      await db.novels.update(novelId, {
         genres: aggregation.object.genres,
         tags: aggregation.object.tags,
         synopsis: aggregation.object.synopsis,
@@ -502,9 +480,9 @@ export async function analyzeNovel({
   }
 
   // ── Mark Complete ───────────────────────────────────────
-  await db.novelAnalyses.update(analysisId, {
-    analysisStatus: errors.length > 0 ? "completed" : "completed",
-    error: errors.length > 0
+  await db.novels.update(novelId, {
+    analysisStatus: "completed",
+    analysisError: errors.length > 0
       ? errors.map((e) => e.chapterTitle ? `[${e.chapterTitle}] ${e.message}` : `[${e.phase}] ${e.message}`).join("; ")
       : undefined,
     updatedAt: new Date(),

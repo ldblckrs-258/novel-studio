@@ -2,8 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import type { NameDescription, NovelAnalysis } from "@/lib/db";
-import { updateNovelAnalysis } from "@/lib/hooks";
+import type { NameDescription, Novel } from "@/lib/db";
+import { updateNovel } from "@/lib/hooks";
 import {
   CpuIcon,
   GlobeIcon,
@@ -119,19 +119,18 @@ function ItemList({
 }
 
 export function WorldBuildingTab({
-  analysis,
+  novel,
 }: {
-  analysis: NovelAnalysis | null | undefined;
+  novel: Novel;
 }) {
   const save = (field: string, value: unknown) => {
-    if (!analysis) return;
-    updateNovelAnalysis(analysis.id, { [field]: value });
+    updateNovel(novel.id, { [field]: value });
   };
 
   const section = (
     icon: React.ElementType,
     label: string,
-    field: keyof NovelAnalysis,
+    field: keyof Novel,
     multi = true,
   ) => {
     const Icon = icon;
@@ -143,7 +142,7 @@ export function WorldBuildingTab({
         </p>
         <EditableText
           value={
-            (typeof analysis?.[field] === "string" ? analysis[field] : "") ?? ""
+            (typeof novel[field] === "string" ? novel[field] : "") ?? ""
           }
           onSave={(v) => save(field, v || undefined)}
           placeholder={`Chưa có ${label.toLowerCase()}...`}
@@ -164,13 +163,13 @@ export function WorldBuildingTab({
       {section(SwordsIcon, "Hệ thống sức mạnh", "powerSystem")}
       <Separator />
       <ItemList
-        items={analysis?.factions ?? []}
+        items={novel.factions ?? []}
         type="faction"
         onUpdate={(v) => save("factions", v)}
       />
       <Separator />
       <ItemList
-        items={analysis?.keyLocations ?? []}
+        items={novel.keyLocations ?? []}
         type="location"
         onUpdate={(v) => save("keyLocations", v)}
       />

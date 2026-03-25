@@ -1,6 +1,12 @@
 import Dexie, { type EntityTable } from "dexie";
+import { registerMigrations } from "./db-migrations";
 
 // ─── Entity Types ────────────────────────────────────────────
+
+export interface NameDescription {
+  name: string;
+  description: string;
+}
 
 export interface Novel {
   id: string;
@@ -9,6 +15,25 @@ export interface Novel {
   coverImage?: string;
   genre?: string;
   targetWordCount?: number;
+  color?: string;
+  author?: string;
+  sourceUrl?: string;
+  // Analysis fields (merged from NovelAnalysis)
+  genres?: string[];
+  tags?: string[];
+  synopsis?: string;
+  worldOverview?: string;
+  powerSystem?: string;
+  storySetting?: string;
+  timePeriod?: string;
+  factions?: NameDescription[];
+  keyLocations?: NameDescription[];
+  worldRules?: string;
+  technologyLevel?: string;
+  analysisStatus?: "pending" | "analyzing" | "completed" | "failed";
+  chaptersAnalyzed?: number;
+  totalChapters?: number;
+  analysisError?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -155,33 +180,6 @@ export interface AnalysisSettings {
   editPrompt?: string;
 }
 
-export interface NameDescription {
-  name: string;
-  description: string;
-}
-
-export interface NovelAnalysis {
-  id: string;
-  novelId: string;
-  genres: string[];
-  tags: string[];
-  synopsis: string;
-  worldOverview?: string;
-  powerSystem?: string;
-  storySetting?: string;
-  timePeriod?: string;
-  factions?: NameDescription[];
-  keyLocations?: NameDescription[];
-  worldRules?: string;
-  technologyLevel?: string;
-  analysisStatus: "pending" | "analyzing" | "completed" | "failed";
-  chaptersAnalyzed: number;
-  totalChapters: number;
-  error?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 // ─── Database ────────────────────────────────────────────────
 
 export class NovelStudioDB extends Dexie {
@@ -195,47 +193,11 @@ export class NovelStudioDB extends Dexie {
   conversations!: EntityTable<Conversation, "id">;
   conversationMessages!: EntityTable<ConversationMessage, "id">;
   chatSettings!: EntityTable<ChatSettings, "id">;
-  novelAnalyses!: EntityTable<NovelAnalysis, "id">;
   analysisSettings!: EntityTable<AnalysisSettings, "id">;
 
   constructor() {
     super("novel-studio");
-
-    this.version(1).stores({
-      novels: "id, title, genre, createdAt, updatedAt",
-      chapters: "id, novelId, order, createdAt",
-      scenes: "id, chapterId, novelId, order, createdAt",
-      characters: "id, novelId, name, role",
-      notes: "id, novelId, category, createdAt",
-    });
-
-    this.version(2).stores({
-      aiProviders: "id, name, isActive, createdAt, updatedAt",
-      aiModels: "id, providerId, modelId, createdAt",
-    });
-
-    this.version(3).stores({
-      conversations: "id, providerId, modelId, createdAt, updatedAt",
-      conversationMessages: "id, conversationId, createdAt",
-    });
-
-    this.version(4).stores({
-      chatSettings: "id",
-    });
-
-    this.version(5).stores({
-      novelAnalyses: "id, novelId, analysisStatus, createdAt",
-    });
-
-    this.version(6).stores({
-      analysisSettings: "id",
-    });
-
-    // v7: Add analyzedAt to Chapter (non-indexed field, no store changes needed)
-    this.version(7).stores({});
-
-    // v8: Add chapter AI tool fields to AnalysisSettings (non-indexed)
-    this.version(8).stores({});
+    registerMigrations(this);
   }
 }
 
