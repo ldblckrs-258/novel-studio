@@ -17,7 +17,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     type: "openai",
     label: "OpenAI",
-    description: "GPT-4o, GPT-4.1, o3, o4-mini",
+    description: "GPT-4.2, GPT-4.1, o3, o4-mini",
     defaultBaseUrl: "https://api.openai.com/v1",
     baseUrlEditable: false,
     apiKeyPlaceholder: "sk-...",
@@ -51,17 +51,13 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     type: "google",
     label: "Google AI",
-    description: "Gemini 2.5 Pro, Flash",
+    description: "Gemini 3.1 Pro, Flash",
     defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
     baseUrlEditable: false,
     apiKeyPlaceholder: "AI...",
     apiKeyHelpUrl: "https://aistudio.google.com/app/apikey",
-    iconKey: "gemini_google",
-    popularModels: [
-      "gemini-2.5-pro",
-      "gemini-2.5-flash",
-      "gemini-2.0-flash",
-    ],
+    iconKey: "google",
+    popularModels: ["gemini-3.1-pro", "gemini-3.1-flash", "gemini-2.0-flash"],
   },
   {
     type: "groq",
@@ -118,7 +114,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     type: "openai-compatible",
     label: "Tùy chỉnh",
-    description: "LM Studio, Ollama, Together, hoặc bất kỳ endpoint tương thích",
+    description:
+      "LM Studio, Ollama, Together, hoặc bất kỳ endpoint tương thích",
     defaultBaseUrl: "",
     baseUrlEditable: true,
     apiKeyPlaceholder: "Khóa API (tùy chọn cho local)",

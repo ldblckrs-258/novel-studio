@@ -305,9 +305,7 @@ function ProviderCard({ provider }: { provider: AIProvider }) {
       const count = await fetchAndSyncModels(provider);
       toast.success(`Đã tải ${count} mô hình`);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Tải mô hình thất bại",
-      );
+      toast.error(err instanceof Error ? err.message : "Tải mô hình thất bại");
     } finally {
       setFetching(false);
     }
@@ -420,8 +418,8 @@ function ProviderCard({ provider }: { provider: AIProvider }) {
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Chưa tải mô hình. Nhấn &quot;Tải mô hình&quot; để tải danh
-                sách mô hình có sẵn.
+                Chưa tải mô hình. Nhấn &quot;Tải mô hình&quot; để tải danh sách
+                mô hình có sẵn.
               </p>
             )}
           </div>
@@ -472,9 +470,11 @@ export function AIProviderSettings() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-medium">Nhà cung cấp AI</h2>
-          <p className="text-sm text-muted-foreground">
+        <div className="mb-4">
+          <h1 className="font-heading text-2xl font-bold tracking-tight">
+            Nhà cung cấp AI
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Cấu hình nền tảng AI cho trò chuyện và phân tích.
           </p>
         </div>
@@ -496,8 +496,8 @@ export function AIProviderSettings() {
             </EmptyMedia>
             <EmptyTitle>Chưa cấu hình nhà cung cấp</EmptyTitle>
             <EmptyDescription>
-              Thêm nhà cung cấp AI để bắt đầu. Hỗ trợ OpenAI, Anthropic,
-              Google, Groq và bất kỳ endpoint tương thích OpenAI.
+              Thêm nhà cung cấp AI để bắt đầu. Hỗ trợ OpenAI, Anthropic, Google,
+              Groq và bất kỳ endpoint tương thích OpenAI.
             </EmptyDescription>
           </EmptyHeader>
           <Button variant="outline" onClick={() => setAddOpen(true)}>

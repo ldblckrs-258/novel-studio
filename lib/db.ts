@@ -146,6 +146,13 @@ export interface AnalysisSettings {
   chapterModel?: StepModelConfig;
   aggregationModel?: StepModelConfig;
   characterModel?: StepModelConfig;
+  // Chapter AI tools
+  translateModel?: StepModelConfig;
+  reviewModel?: StepModelConfig;
+  editModel?: StepModelConfig;
+  translatePrompt?: string;
+  reviewPrompt?: string;
+  editPrompt?: string;
 }
 
 export interface NameDescription {
@@ -226,6 +233,9 @@ export class NovelStudioDB extends Dexie {
 
     // v7: Add analyzedAt to Chapter (non-indexed field, no store changes needed)
     this.version(7).stores({});
+
+    // v8: Add chapter AI tool fields to AnalysisSettings (non-indexed)
+    this.version(8).stores({});
   }
 }
 

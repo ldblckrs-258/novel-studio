@@ -24,6 +24,7 @@
     "date-fns": "^4.1.0",
     "dexie": "^4.3.0",
     "dexie-react-hooks": "^4.2.0",
+    "diff": "^8.0.4",
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^1.0.1",
@@ -47,6 +48,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/diff": "^8.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

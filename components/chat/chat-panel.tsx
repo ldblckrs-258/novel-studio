@@ -12,7 +12,6 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
-import { streamText } from "ai";
 import { getModel } from "@/lib/ai/provider";
 import { withGlobalInstruction } from "@/lib/ai/system-prompt";
 import {
@@ -31,14 +30,15 @@ import {
 } from "@/lib/hooks";
 import { useChatPanel } from "@/lib/stores/chat-panel";
 import { cn } from "@/lib/utils";
+import { streamText } from "ai";
 import {
   BotIcon,
+  HistoryIcon,
   LoaderIcon,
   PlusIcon,
   SendIcon,
-  SparklesIcon,
-  HistoryIcon,
   SettingsIcon,
+  SparklesIcon,
   XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -57,10 +57,11 @@ export function ChatPanel() {
   const chatSettings = useChatSettings();
   const selectedProviderId = chatSettings.providerId;
   const selectedModelId = chatSettings.modelId;
-  const systemPrompt = withGlobalInstruction(
-    chatSettings.systemPrompt,
-    chatSettings.globalSystemInstruction,
-  ) ?? "";
+  const systemPrompt =
+    withGlobalInstruction(
+      chatSettings.systemPrompt,
+      chatSettings.globalSystemInstruction,
+    ) ?? "";
   const temperature = chatSettings.temperature;
   const selectedProvider = providers?.find((p) => p.id === selectedProviderId);
   const models = useAIModels(selectedProviderId || undefined);
@@ -342,7 +343,7 @@ export function ChatPanel() {
   return (
     <div
       className={cn(
-        "flex h-svh shrink-0 flex-col overflow-hidden border-l bg-card transition-[width] duration-200 ease-in-out",
+        "flex h-svh shrink-0 flex-col overflow-hidden border-l bg-card transition-[width] duration-200 ease-in-out sticky top-0",
         isOpen ? "w-[400px]" : "w-0",
       )}
     >
@@ -413,18 +414,26 @@ export function ChatPanel() {
             providers={providers ?? []}
             models={models ?? []}
             selectedProviderId={selectedProviderId}
-            onProviderChange={(id) => updateChatSettings({ providerId: id, modelId: "" })}
+            onProviderChange={(id) =>
+              updateChatSettings({ providerId: id, modelId: "" })
+            }
             selectedModelId={selectedModelId}
             onModelChange={(id) => updateChatSettings({ modelId: id })}
             systemPrompt={systemPrompt}
-            onSystemPromptChange={(p) => updateChatSettings({ systemPrompt: p })}
+            onSystemPromptChange={(p) =>
+              updateChatSettings({ systemPrompt: p })
+            }
             temperature={temperature}
             onTemperatureChange={(t) => updateChatSettings({ temperature: t })}
           />
         )}
 
         {/* Messages */}
-        <StickToBottom className="relative min-h-0 flex-1" resize="smooth" initial="instant">
+        <StickToBottom
+          className="relative min-h-0 flex-1"
+          resize="smooth"
+          initial="instant"
+        >
           <StickToBottom.Content className="flex flex-col gap-4 p-4">
             {!hasProvider ? (
               <Empty className="my-8">
@@ -446,8 +455,8 @@ export function ChatPanel() {
                   </EmptyMedia>
                   <EmptyTitle>Trợ lý sáng tác</EmptyTitle>
                   <EmptyDescription>
-                    Đặt câu hỏi, brainstorm ý tưởng, hoặc nhận trợ giúp với
-                    bài viết của bạn.
+                    Đặt câu hỏi, brainstorm ý tưởng, hoặc nhận trợ giúp với bài
+                    viết của bạn.
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
