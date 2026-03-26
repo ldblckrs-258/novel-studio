@@ -2,6 +2,8 @@
 
 import { AppSidebar, miscNav, navConfig } from "@/components/app-sidebar";
 import { ChatPanel } from "@/components/chat-panel";
+import { DictInitializer } from "@/components/dict-initializer";
+import { NameDictPanel } from "@/components/name-dict/name-dict-panel";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -15,7 +17,8 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useChatPanel } from "@/lib/stores/chat-panel";
-import { MoonIcon, SparklesIcon, SunIcon } from "lucide-react";
+import { useNameDictPanel } from "@/lib/stores/name-dict-panel";
+import { BookTextIcon, BotIcon, MoonIcon, SunIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -34,7 +37,17 @@ export default function DashboardLayout({
   if (pathname.match(/^\/novels\/[^/]+\/read$/)) pageTitle = "Đọc truyện";
   if (pathname.match(/^\/novels\/[^/]+\/chapters\/.+$/))
     pageTitle = "Soạn thảo";
+  const novelIdMatch = pathname.match(/^\/novels\/([^/]+)/);
+  const currentNovelId = novelIdMatch?.[1] ?? null;
   const toggleChat = useChatPanel((s) => s.toggle);
+  const nameDictToggle = useNameDictPanel((s) => s.toggle);
+  const nameDictSetNovelId = useNameDictPanel((s) => s.setNovelId);
+  const toggleNameDict = () => nameDictToggle(currentNovelId);
+
+  // Keep name dict panel's novelId in sync with URL
+  useEffect(() => {
+    nameDictSetNovelId(currentNovelId);
+  }, [currentNovelId, nameDictSetNovelId]);
 
   const [dark, setDark] = useState(false);
   useEffect(() => {
@@ -77,16 +90,26 @@ export default function DashboardLayout({
             <Button
               variant="ghost"
               size="icon-sm"
+              onClick={toggleNameDict}
+              title="Từ điển tên"
+            >
+              <BookTextIcon />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={toggleChat}
               title="Bật/tắt AI Chat (⌘.)"
             >
-              <SparklesIcon />
+              <BotIcon />
             </Button>
           </div>
         </header>
         <div className="flex-1 overflow-auto">{children}</div>
       </SidebarInset>
       <ChatPanel />
+      <NameDictPanel />
+      <DictInitializer />
     </SidebarProvider>
   );
 }

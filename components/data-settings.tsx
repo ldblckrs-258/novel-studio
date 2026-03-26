@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import {
+  BookTextIcon,
   DatabaseIcon,
   DownloadIcon,
   HardDriveIcon,
@@ -22,6 +23,7 @@ import {
   type ImportPreview,
 } from "@/lib/db-io";
 import { ProgressDialog } from "@/components/progress-dialog";
+import { DictionaryManagement } from "@/components/dictionary-management";
 import {
   Card,
   CardHeader,
@@ -276,6 +278,10 @@ export function DataSettings() {
           <TabsTrigger value="import">
             <UploadIcon className="size-3.5" />
             Nhập
+          </TabsTrigger>
+          <TabsTrigger value="dictionary">
+            <BookTextIcon className="size-3.5" />
+            Từ điển
           </TabsTrigger>
         </TabsList>
 
@@ -609,6 +615,11 @@ export function DataSettings() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ─── Dictionary Tab ──────────────────────────────────── */}
+        <TabsContent value="dictionary">
+          <DictionaryManagement />
         </TabsContent>
       </Tabs>
 

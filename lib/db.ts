@@ -50,7 +50,11 @@ export interface Chapter {
   updatedAt: Date;
 }
 
-export type SceneVersionType = "ai-translate" | "ai-edit" | "manual";
+export type SceneVersionType =
+  | "ai-translate"
+  | "ai-edit"
+  | "manual"
+  | "qt-convert";
 
 export interface Scene {
   id: string;
@@ -188,6 +192,80 @@ export interface AnalysisSettings {
   editPrompt?: string;
 }
 
+// ─── Name Dictionary ─────────────────────────────────────────
+
+export type NameEntryCategory =
+  | "nhân vật"
+  | "địa danh"
+  | "môn phái"
+  | "thuật ngữ"
+  | "vật phẩm"
+  | "kỹ năng"
+  | "khác";
+
+export const NAME_ENTRY_CATEGORIES: NameEntryCategory[] = [
+  "nhân vật",
+  "địa danh",
+  "môn phái",
+  "thuật ngữ",
+  "vật phẩm",
+  "kỹ năng",
+  "khác",
+];
+
+export interface NameEntry {
+  id: string;
+  scope: string; // "global" | novelId
+  chinese: string;
+  vietnamese: string;
+  category: string; // NameEntryCategory or custom string
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ─── QT Dictionary ───────────────────────────────────────────
+
+export type DictSource =
+  | "vietphrase"
+  | "names"
+  | "names2"
+  | "phienam"
+  | "luatnhan";
+
+export interface DictEntry {
+  id: string;
+  source: DictSource;
+  chinese: string;
+  vietnamese: string;
+}
+
+export interface DictMeta {
+  id: string; // "dict-meta" singleton
+  loadedAt: Date;
+  sources: Record<DictSource, number>; // entry count per source
+}
+
+/** Cached raw text per dict source — avoids reading 728k rows from dictEntries on init */
+export interface DictCache {
+  source: DictSource;
+  rawText: string;
+}
+
+// ─── Convert Settings ────────────────────────────────────────
+
+export type { ConvertOptions } from "@/lib/workers/qt-engine.types";
+export { DEFAULT_CONVERT_OPTIONS } from "@/lib/workers/qt-engine.types";
+
+export interface ConvertSettings {
+  id: string; // "convert-settings" singleton
+  nameVsPriority: string;
+  scopePriority: string;
+  maxPhraseLength: number;
+  vpLengthPriority: string;
+  luatNhanMode: string;
+  splitMode: string;
+}
+
 // ─── Database ────────────────────────────────────────────────
 
 export class NovelStudioDB extends Dexie {
@@ -202,6 +280,11 @@ export class NovelStudioDB extends Dexie {
   conversationMessages!: EntityTable<ConversationMessage, "id">;
   chatSettings!: EntityTable<ChatSettings, "id">;
   analysisSettings!: EntityTable<AnalysisSettings, "id">;
+  nameEntries!: EntityTable<NameEntry, "id">;
+  dictEntries!: EntityTable<DictEntry, "id">;
+  dictMeta!: EntityTable<DictMeta, "id">;
+  dictCache!: EntityTable<DictCache, "source">;
+  convertSettings!: EntityTable<ConvertSettings, "id">;
 
   constructor() {
     super("novel-studio");

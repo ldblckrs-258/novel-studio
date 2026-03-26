@@ -49,7 +49,6 @@ import {
   PlusIcon,
   SendIcon,
   SettingsIcon,
-  SparklesIcon,
   XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -91,8 +90,12 @@ export function ChatPanel() {
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const { showConfirm: showCloseConfirm, guard: guardClose, confirm: confirmClose, dismiss: dismissClose } =
-    useConfirmInterrupt(isStreaming);
+  const {
+    showConfirm: showCloseConfirm,
+    guard: guardClose,
+    confirm: confirmClose,
+    dismiss: dismissClose,
+  } = useConfirmInterrupt(isStreaming);
 
   // Auto-select first provider when none is set
   useEffect(() => {
@@ -258,7 +261,9 @@ export function ChatPanel() {
               "<!-- error -->\n**Lỗi nhà cung cấp** — Nhà cung cấp AI gặp lỗi nội bộ khi xử lý yêu cầu. Hãy thử lại sau hoặc đổi mô hình AI khác.";
           } else {
             finalContent =
-              "<!-- error -->\n**Phản hồi trống** — Nhà cung cấp AI trả về nội dung trống (finish reason: `" + (finishReason || "unknown") + "`). Hãy thử chỉnh sửa **Chỉ thị chung**, **system prompt** của cuộc hội thoại, hoặc **đổi mô hình AI** khác.";
+              "<!-- error -->\n**Phản hồi trống** — Nhà cung cấp AI trả về nội dung trống (finish reason: `" +
+              (finishReason || "unknown") +
+              "`). Hãy thử chỉnh sửa **Chỉ thị chung**, **system prompt** của cuộc hội thoại, hoặc **đổi mô hình AI** khác.";
           }
 
           // Store trace for empty/error responses too
@@ -355,8 +360,7 @@ export function ChatPanel() {
               errorContent = `<!-- error -->\n**Lỗi API${status ? ` (${status})` : ""}** — ${detail || "Yêu cầu không hợp lệ."}${responseBlock}`;
             }
           } else {
-            const errorMsg =
-              err instanceof Error ? err.message : String(err);
+            const errorMsg = err instanceof Error ? err.message : String(err);
             const cause =
               err instanceof Error && err.cause instanceof Error
                 ? err.cause.message
@@ -500,7 +504,7 @@ export function ChatPanel() {
       {/* Header */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b px-3">
         <div className="flex items-center gap-2">
-          <SparklesIcon className="size-4 text-muted-foreground" />
+          <BotIcon className="size-4 text-muted-foreground" />
           <span className="text-sm font-medium">Trò chuyện AI</span>
         </div>
         <div className="flex items-center gap-1">
@@ -531,14 +535,23 @@ export function ChatPanel() {
           <Button
             variant="ghost"
             size="icon-xs"
-            onClick={() => guardClose(() => { abortRef.current?.abort(); close(); })}
+            onClick={() =>
+              guardClose(() => {
+                abortRef.current?.abort();
+                close();
+              })
+            }
           >
             <XIcon />
           </Button>
         </div>
       </div>
 
-      <ConfirmInterruptDialog open={showCloseConfirm} onConfirm={confirmClose} onCancel={dismissClose} />
+      <ConfirmInterruptDialog
+        open={showCloseConfirm}
+        onConfirm={confirmClose}
+        onCancel={dismissClose}
+      />
 
       {historyOpen && (
         <ChatHistoryDialog
@@ -570,9 +583,7 @@ export function ChatPanel() {
           selectedModelId={selectedModelId}
           onModelChange={(id) => updateChatSettings({ modelId: id })}
           systemPrompt={chatSettings.systemPrompt ?? ""}
-          onSystemPromptChange={(p) =>
-            updateChatSettings({ systemPrompt: p })
-          }
+          onSystemPromptChange={(p) => updateChatSettings({ systemPrompt: p })}
           temperature={temperature}
           onTemperatureChange={(t) => updateChatSettings({ temperature: t })}
         />
@@ -601,7 +612,7 @@ export function ChatPanel() {
             <Empty className="my-8">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <SparklesIcon />
+                  <BotIcon />
                 </EmptyMedia>
                 <EmptyTitle>Trợ lý sáng tác</EmptyTitle>
                 <EmptyDescription>
@@ -706,7 +717,12 @@ export function ChatPanel() {
   // Mobile: Sheet drawer (mirrors Sidebar mobile path)
   if (isMobile) {
     return (
-      <Sheet open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
+      <Sheet
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) close();
+        }}
+      >
         <SheetContent
           side="right"
           showCloseButton={false}
@@ -729,14 +745,14 @@ export function ChatPanel() {
       <div
         className={cn(
           "relative bg-transparent transition-[width] duration-200 ease-linear",
-          isOpen ? "w-[400px]" : "w-0",
+          isOpen ? "w-[360px]" : "w-0",
         )}
       />
       {/* Fixed container */}
       <div
         className={cn(
-          "fixed inset-y-0 right-0 z-10 hidden h-svh w-[400px] border-l bg-card transition-[right] duration-200 ease-linear md:flex",
-          !isOpen && "right-[calc(400px*-1)]",
+          "fixed inset-y-0 right-0 z-10 hidden h-svh w-[360px] border-l bg-card transition-[right] duration-200 ease-linear md:flex",
+          !isOpen && "right-[calc(360px*-1)]",
         )}
       >
         <div className="flex size-full flex-col">{panelContent}</div>

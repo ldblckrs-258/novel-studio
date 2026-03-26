@@ -1,20 +1,25 @@
 "use client";
 
+import { ScrollToBottom } from "@/components/chat/scroll-to-bottom";
+import { Button } from "@/components/ui/button";
+import {
+  useChapterTools,
+  type ChapterToolMode,
+} from "@/lib/stores/chapter-tools";
+import { cn } from "@/lib/utils";
 import { StopCircleIcon, XIcon } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { StickToBottom } from "use-stick-to-bottom";
-import { ScrollToBottom } from "@/components/chat/scroll-to-bottom";
-import { useChapterTools, type ChapterToolMode } from "@/lib/stores/chapter-tools";
-import { TranslateMode, type TranslateResult } from "./translate-mode";
-import { ReviewMode } from "./review-mode";
+import { ConvertMode } from "./convert-mode";
 import { EditMode } from "./edit-mode";
+import { ReviewMode } from "./review-mode";
+import { TranslateMode, type TranslateResult } from "./translate-mode";
 
 const MODE_TITLES: Record<ChapterToolMode, string> = {
   translate: "Dịch chương",
   review: "Đánh giá chương",
   edit: "Chỉnh sửa chương",
+  convert: "Convert chương",
 };
 
 function PanelResizeHandle() {
@@ -104,14 +109,8 @@ export function ChapterToolsPanel({
         <>
           <PanelResizeHandle />
           <header className="flex h-12 shrink-0 items-center justify-between border-b px-4">
-            <h3 className="text-sm font-medium">
-              {MODE_TITLES[activeMode]}
-            </h3>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onClose}
-            >
+            <h3 className="text-sm font-medium">{MODE_TITLES[activeMode]}</h3>
+            <Button variant="ghost" size="icon-sm" onClick={onClose}>
               <XIcon className="size-4" />
             </Button>
           </header>
@@ -145,6 +144,17 @@ export function ChapterToolsPanel({
                   content={content}
                   novelId={novelId}
                   chapterId={chapterId}
+                  renderFooter={renderFooter}
+                />
+              )}
+              {activeMode === "convert" && (
+                <ConvertMode
+                  content={content}
+                  novelId={novelId}
+                  chapterId={chapterId}
+                  chapterTitle={chapterTitle}
+                  onTranslated={onTranslated}
+                  onRevert={onRevertTranslation}
                   renderFooter={renderFooter}
                 />
               )}

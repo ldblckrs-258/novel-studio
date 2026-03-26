@@ -5,6 +5,7 @@ import {
   type Scene,
   type Character,
   type Note,
+  type NameEntry,
   type SceneVersionType,
 } from "@/lib/db";
 
@@ -18,6 +19,7 @@ export interface NovelExportData {
   scenes: Scene[];
   characters: Character[];
   notes: Note[];
+  nameEntries?: NameEntry[];
   /** @deprecated v1 only — analysis data is now on Novel */
   analyses?: unknown[];
 }
@@ -33,14 +35,19 @@ export async function exportNovel(
 
   const includeVersions = options?.includeVersions ?? false;
 
-  const [chapters, scenes, characters, notes] = await Promise.all([
-    db.chapters.where("novelId").equals(novelId).toArray(),
-    includeVersions
-      ? db.scenes.where("novelId").equals(novelId).toArray()
-      : db.scenes.where("[novelId+isActive]").equals([novelId, 1]).toArray(),
-    db.characters.where("novelId").equals(novelId).toArray(),
-    db.notes.where("novelId").equals(novelId).toArray(),
-  ]);
+  const [chapters, scenes, characters, notes, nameEntries] =
+    await Promise.all([
+      db.chapters.where("novelId").equals(novelId).toArray(),
+      includeVersions
+        ? db.scenes.where("novelId").equals(novelId).toArray()
+        : db.scenes
+            .where("[novelId+isActive]")
+            .equals([novelId, 1])
+            .toArray(),
+      db.characters.where("novelId").equals(novelId).toArray(),
+      db.notes.where("novelId").equals(novelId).toArray(),
+      db.nameEntries.where("scope").equals(novelId).toArray(),
+    ]);
 
   return {
     version: 2,
@@ -50,6 +57,7 @@ export async function exportNovel(
     scenes,
     characters,
     notes,
+    ...(nameEntries.length > 0 ? { nameEntries } : {}),
   };
 }
 
@@ -210,6 +218,19 @@ export async function importNovel(file: File): Promise<string> {
         novelId,
         createdAt: new Date(note.createdAt),
         updatedAt: new Date(note.updatedAt),
+      });
+    }
+  }
+
+  // Name Entries (scope remaps from old novelId to new novelId)
+  if (data.nameEntries?.length) {
+    for (const entry of data.nameEntries) {
+      await db.nameEntries.add({
+        ...entry,
+        id: crypto.randomUUID(),
+        scope: novelId,
+        createdAt: new Date(entry.createdAt),
+        updatedAt: new Date(entry.updatedAt),
       });
     }
   }

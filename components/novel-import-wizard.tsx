@@ -211,9 +211,7 @@ export function NovelImportWizard() {
         },
       );
 
-      toast.success(
-        `Đã nhập "${novelTitle}" với ${chapters.length} chương`,
-      );
+      toast.success(`Đã nhập "${novelTitle}" với ${chapters.length} chương`);
       router.push("/");
     } catch (error) {
       toast.error(
@@ -386,9 +384,7 @@ export function NovelImportWizard() {
                 Kiểm tra mẫu
               </Button>
               {matchCount !== null && (
-                <Badge variant="secondary">
-                  Tìm thấy {matchCount} kết quả
-                </Badge>
+                <Badge variant="secondary">Tìm thấy {matchCount} kết quả</Badge>
               )}
             </div>
 
@@ -416,7 +412,7 @@ export function NovelImportWizard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[400px] pr-4">
+            <ScrollArea className="h-[360px] pr-4">
               <div className="space-y-2">
                 {chapters.map((ch, i) => (
                   <div

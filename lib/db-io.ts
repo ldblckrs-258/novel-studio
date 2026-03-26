@@ -11,6 +11,7 @@ import {
   type AnalysisSettings,
   type Conversation,
   type ConversationMessage,
+  type NameEntry,
 } from "@/lib/db";
 import {
   encryptData,
@@ -30,6 +31,7 @@ const NOVEL_SCOPED_TABLES = [
   "scenes",
   "characters",
   "notes",
+  "nameEntries",
 ] as const;
 
 const AI_TABLES = [
@@ -52,6 +54,7 @@ const IMPORT_ORDER = [
   "chapters",
   "scenes",
   "notes",
+  "nameEntries",
   "chatSettings",
   "analysisSettings",
   "conversations",
@@ -70,6 +73,7 @@ export const TABLE_LABELS: Record<string, string> = {
   analysisSettings: "Cài đặt phân tích",
   conversations: "Hội thoại",
   conversationMessages: "Tin nhắn",
+  nameEntries: "Từ điển tên",
 };
 
 // Date fields per table for reviving from JSON
@@ -85,6 +89,7 @@ const DATE_FIELDS: Record<string, string[]> = {
   conversationMessages: ["createdAt"],
   chatSettings: [],
   analysisSettings: [],
+  nameEntries: ["createdAt", "updatedAt"],
 };
 
 // FK fields that need remapping in "keep-both" mode
@@ -93,6 +98,7 @@ const FK_FIELDS: Record<string, Record<string, string>> = {
   scenes: { novelId: "novels", chapterId: "chapters", activeSceneId: "scenes" },
   characters: { novelId: "novels" },
   notes: { novelId: "novels" },
+  nameEntries: { scope: "novels" },
   aiModels: { providerId: "aiProviders" },
   conversations: { providerId: "aiProviders", modelId: "aiModels" },
   conversationMessages: { conversationId: "conversations" },
@@ -114,6 +120,7 @@ type TableData = {
   scenes?: Scene[];
   characters?: Character[];
   notes?: Note[];
+  nameEntries?: NameEntry[];
   aiProviders?: AIProvider[];
   aiModels?: AIModel[];
   chatSettings?: ChatSettings[];

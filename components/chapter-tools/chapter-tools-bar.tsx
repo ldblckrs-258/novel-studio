@@ -1,28 +1,33 @@
 "use client";
 
 import {
-  LanguagesIcon,
-  ClipboardCheckIcon,
-  PenLineIcon,
-  LoaderIcon,
-} from "lucide-react";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  useChapterTools,
+  type ChapterToolMode,
+} from "@/lib/stores/chapter-tools";
 import { cn } from "@/lib/utils";
-import { useChapterTools, type ChapterToolMode } from "@/lib/stores/chapter-tools";
+import {
+  ClipboardCheckIcon,
+  GitCompareArrowsIcon,
+  LanguagesIcon,
+  LoaderIcon,
+  SparklesIcon,
+} from "lucide-react";
 
 const TOOLS: {
   mode: ChapterToolMode;
   icon: React.ElementType;
   label: string;
 }[] = [
+  { mode: "convert", icon: GitCompareArrowsIcon, label: "Convert chương" },
   { mode: "translate", icon: LanguagesIcon, label: "Dịch chương" },
   { mode: "review", icon: ClipboardCheckIcon, label: "Đánh giá chương" },
-  { mode: "edit", icon: PenLineIcon, label: "Chỉnh sửa chương" },
+  { mode: "edit", icon: SparklesIcon, label: "Chỉnh sửa chương" },
 ];
 
 export function ChapterToolsBar({
@@ -43,7 +48,10 @@ export function ChapterToolsBar({
         {TOOLS.map((tool) => {
           const isActive = activeMode === tool.mode;
           const showSpinner = isActive && isStreaming;
-          const showDot = tool.mode === "edit" && !!reviewResult && reviewChapterId === chapterId;
+          const showDot =
+            tool.mode === "edit" &&
+            !!reviewResult &&
+            reviewChapterId === chapterId;
 
           return (
             <Tooltip key={tool.mode}>

@@ -57,7 +57,7 @@ SidebarProvider
 ├── SidebarInset
 │   ├── header (sidebar trigger + breadcrumb + chat toggle)
 │   └── page content (flex-1 overflow-auto)
-└── ChatPanel (right, 400px, shrink-0, h-svh)
+└── ChatPanel (right, 360px, shrink-0, h-svh)
 ```
 
 `navConfig` in `app-sidebar.tsx` is the single source of truth for routes — the dashboard layout derives `pageTitles` from it and the homepage derives quick navigation from it.
@@ -65,6 +65,7 @@ SidebarProvider
 ### Fonts
 
 Loaded via `next/font/google` in root layout as CSS variables:
+
 - `--font-open-sans` (body/sans, with Vietnamese subset)
 - `--font-playfair` (headings/serif)
 - `--font-jetbrains-mono` (code/mono, with Vietnamese subset)

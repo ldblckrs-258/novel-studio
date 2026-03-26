@@ -19,6 +19,7 @@ import { resolveChapterToolPrompts, DEFAULT_TRANSLATE_SYSTEM } from "@/lib/chapt
 import { buildTranslateContext, type ContextDepth } from "@/lib/chapter-tools/context";
 import { resolveChapterToolModel, runChapterToolStream } from "@/lib/chapter-tools/stream-runner";
 import { TITLE_SEPARATOR, parseTranslateResult } from "@/lib/chapter-tools/bulk-translate";
+import { getMergedNameDict } from "@/lib/hooks/use-name-entries";
 import { ToolConfig } from "./tool-config";
 import { StreamingDisplay } from "./streaming-display";
 
@@ -87,6 +88,7 @@ export function TranslateMode({
   const [hasContext, setHasContext] = useState<boolean | null>(null);
   const [depth, setDepth] = useState<ContextDepth>("standard");
   const [translateTitle, setTranslateTitle] = useState(true);
+  const [useNameDict, setUseNameDict] = useState(false);
   const [summary, setSummary] = useState<TranslateSummary | null>(null);
 
   const handleTranslate = useCallback(async () => {
@@ -97,9 +99,12 @@ export function TranslateMode({
       return;
     }
 
+    const nameDict = useNameDict
+      ? await getMergedNameDict(novelId)
+      : undefined;
     const [model, context] = await Promise.all([
       resolveChapterToolModel(settings.translateModel, provider, chatSettings),
-      buildTranslateContext(novelId, chapterOrder, depth),
+      buildTranslateContext(novelId, chapterOrder, depth, nameDict),
     ]);
     setHasContext(context !== null);
 
@@ -192,17 +197,29 @@ export function TranslateMode({
         promptLabel="Prompt dịch thuật"
       />
 
-      {/* Translate title toggle */}
+      {/* Translate title toggle + name dict toggle */}
       {showConfig && (
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="translate-title"
-            checked={translateTitle}
-            onCheckedChange={(v) => setTranslateTitle(v === true)}
-          />
-          <Label htmlFor="translate-title" className="text-xs cursor-pointer">
-            Dịch tiêu đề chương
-          </Label>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="translate-title"
+              checked={translateTitle}
+              onCheckedChange={(v) => setTranslateTitle(v === true)}
+            />
+            <Label htmlFor="translate-title" className="text-xs cursor-pointer">
+              Dịch tiêu đề chương
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="use-name-dict"
+              checked={useNameDict}
+              onCheckedChange={(v) => setUseNameDict(v === true)}
+            />
+            <Label htmlFor="use-name-dict" className="text-xs cursor-pointer">
+              Sử dụng từ điển tên
+            </Label>
+          </div>
         </div>
       )}
 

@@ -65,6 +65,36 @@ export const CATEGORY_META: Record<
 
 export const changelog: ChangelogRelease[] = [
   {
+    version: "0.8.0",
+    date: "2026-03-27",
+    title: "Quick Translator — Convert truyện Trung-Việt",
+    summary:
+      "Chuyển đổi tiểu thuyết tiếng Trung sang tiếng Việt bằng từ điển QT, không cần AI hay API key. Tùy chỉnh cách convert và quản lý từ điển tên nhân vật.",
+    changes: [
+      {
+        category: "feature",
+        description: "Convert truyện Trung → Việt bằng từ điển QT",
+        details:
+          "Dán văn bản tiếng Trung vào trang Convert nhanh hoặc dùng nút Convert ngay trong trình soạn thảo chương. Kết quả tự động viết hoa tên riêng, chọn nghĩa phù hợp, và giữ đúng định dạng đoạn văn.",
+        tags: ["convert", "dịch thuật"],
+      },
+      {
+        category: "feature",
+        description: "Tùy chỉnh cách convert",
+        details:
+          "Điều chỉnh thứ tự ưu tiên giữa từ điển tên và từ vựng, độ dài cụm từ, cách áp dụng luật nhân xưng, và nhiều tùy chọn khác. Cài đặt được lưu lại và dùng chung cho cả trang Convert nhanh lẫn soạn thảo chương.",
+        tags: ["convert", "cài đặt"],
+      },
+      {
+        category: "feature",
+        description: "Quản lý từ điển và từ điển tên",
+        details:
+          "Xem, tải xuống, hoặc thay thế từng bộ từ điển QT. Nhập danh sách tên nhân vật từ file .txt với tùy chọn giữ bản cũ hoặc ghi đè khi trùng. Tra cứu và lọc từ điển tên theo loại (nhân vật, địa danh, môn phái...) ngay từ thanh bên.",
+        tags: ["từ điển", "quản lý"],
+      },
+    ],
+  },
+  {
     version: "0.7.0",
     date: "2026-03-26",
     title: "Cải thiện xử lý lỗi AI & Trải nghiệm chat",

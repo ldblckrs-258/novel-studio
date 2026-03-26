@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import type { SceneVersionType } from "@/lib/db";
+import { useActivePanel } from "./active-panel";
 
-export type ChapterToolMode = "translate" | "review" | "edit";
+export type ChapterToolMode = "translate" | "review" | "edit" | "convert";
 
 export const PANEL_MIN_WIDTH = 280;
 export const PANEL_MAX_WIDTH = 700;
@@ -60,6 +61,9 @@ export const useChapterTools = create<ChapterToolsState>((set, get) => ({
   },
 
   setActiveMode: (mode) => {
+    useActivePanel
+      .getState()
+      .setActivePanel(mode ? "chapter-tools" : null);
     set({ activeMode: mode, completedResult: null, completedTitle: null, streamingContent: "" });
   },
 
@@ -113,3 +117,17 @@ export const useChapterTools = create<ChapterToolsState>((set, get) => ({
       pendingVersionType: null,
     }),
 }));
+
+// Auto-close when another panel takes over
+useActivePanel.subscribe((state) => {
+  const { activeMode, abortController } = useChapterTools.getState();
+  if (state.activePanel !== "chapter-tools" && activeMode !== null) {
+    abortController?.abort();
+    useChapterTools.setState({
+      activeMode: null,
+      isStreaming: false,
+      streamingContent: "",
+      abortController: null,
+    });
+  }
+});

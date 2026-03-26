@@ -1,5 +1,6 @@
 "use client";
 
+import { navConfig } from "@/components/app-sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +18,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
-import { navConfig } from "@/components/app-sidebar";
 import {
   useDashboardStats,
   useRecentChapters,
@@ -50,7 +50,13 @@ function formatRelative(date: Date) {
   return date.toLocaleDateString("vi-VN", { day: "numeric", month: "short" });
 }
 
-const QUICK_NAV_HREFS = ["/library", "/import", "/settings/providers"];
+const QUICK_NAV_HREFS = [
+  "/library",
+  "/import",
+  "/convert",
+  "/settings/providers",
+  "/settings/data",
+];
 const QUICK_NAV = navConfig.filter((item) =>
   QUICK_NAV_HREFS.includes(item.href),
 );
@@ -155,9 +161,7 @@ export default function DashboardPage() {
                       />
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {ch.title}
-                      </p>
+                      <p className="truncate text-sm font-medium">{ch.title}</p>
                       <p className="truncate text-xs text-muted-foreground">
                         {ch.novelTitle}
                       </p>

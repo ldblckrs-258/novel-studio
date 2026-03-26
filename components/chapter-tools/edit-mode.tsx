@@ -1,16 +1,26 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
-import { CheckIcon, PenLineIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { useChapterTools } from "@/lib/stores/chapter-tools";
-import { useAnalysisSettings, useChatSettings, useAIProvider } from "@/lib/hooks";
-import { resolveChapterToolPrompts, DEFAULT_EDIT_SYSTEM } from "@/lib/chapter-tools/prompts";
 import { buildMinimalContext } from "@/lib/chapter-tools/context";
-import { resolveChapterToolModel, runChapterToolStream } from "@/lib/chapter-tools/stream-runner";
-import { ToolConfig } from "./tool-config";
+import {
+  DEFAULT_EDIT_SYSTEM,
+  resolveChapterToolPrompts,
+} from "@/lib/chapter-tools/prompts";
+import {
+  resolveChapterToolModel,
+  runChapterToolStream,
+} from "@/lib/chapter-tools/stream-runner";
+import {
+  useAIProvider,
+  useAnalysisSettings,
+  useChatSettings,
+} from "@/lib/hooks";
+import { useChapterTools } from "@/lib/stores/chapter-tools";
+import { CheckIcon, SparklesIcon } from "lucide-react";
+import { useCallback, useEffect } from "react";
+import { toast } from "sonner";
 import { StreamingDisplay } from "./streaming-display";
+import { ToolConfig } from "./tool-config";
 
 export function EditMode({
   content,
@@ -77,14 +87,15 @@ export function EditMode({
     if (completedResult) {
       renderFooter(
         <p className="text-xs text-muted-foreground">
-          Kết quả hiển thị bên trái. Chỉnh sửa và nhấn &ldquo;Áp dụng&rdquo; để thay thế nội dung.
+          Kết quả hiển thị bên trái. Chỉnh sửa và nhấn &ldquo;Áp dụng&rdquo; để
+          thay thế nội dung.
         </p>,
       );
       return;
     }
     renderFooter(
       <Button onClick={handleEdit} className="w-full">
-        <PenLineIcon className="mr-1.5 size-3.5" />
+        <SparklesIcon className="mr-1.5 size-3.5" />
         Chỉnh sửa chương
       </Button>,
     );
@@ -104,15 +115,14 @@ export function EditMode({
       {reviewResult && !isStreaming && !completedResult && (
         <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 p-2.5 text-xs text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400">
           <CheckIcon className="size-4 shrink-0" />
-          <span>Đánh giá có sẵn — sẽ được sử dụng làm tham chiếu khi chỉnh sửa.</span>
+          <span>
+            Đánh giá có sẵn — sẽ được sử dụng làm tham chiếu khi chỉnh sửa.
+          </span>
         </div>
       )}
 
       {isStreaming && (
-        <StreamingDisplay
-          content={streamingContent}
-          isStreaming
-        />
+        <StreamingDisplay content={streamingContent} isStreaming />
       )}
     </div>
   );

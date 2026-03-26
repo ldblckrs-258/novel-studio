@@ -1,11 +1,44 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import { RotateCcwIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { computeDiff, formatStats } from "@/lib/chapter-tools/diff-utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  computeDiff,
+  formatStats,
+  type DiffResult,
+} from "@/lib/chapter-tools/diff-utils";
 import { DiffHighlight } from "./diff-highlight";
+
+/**
+ * Async diff computation — defers expensive diffWords to idle time
+ * to prevent freezing the tab on large chapters.
+ */
+function useAsyncDiff(a: string, b: string): DiffResult | null {
+  const [result, setResult] = useState<DiffResult | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const id = requestIdleCallback(
+      () => {
+        const diff = computeDiff(a, b);
+        if (!cancelled) setResult(diff);
+      },
+      { timeout: 200 },
+    );
+
+    return () => {
+      cancelled = true;
+      cancelIdleCallback(id);
+      setResult(null);
+    };
+  }, [a, b]);
+
+  return result;
+}
 
 interface SideBySideDiffProps {
   original: string;
@@ -24,7 +57,7 @@ export function SideBySideDiff({
   onReject,
   onRegenerate,
 }: SideBySideDiffProps) {
-  const diff = useMemo(() => computeDiff(original, result), [original, result]);
+  const diff = useAsyncDiff(original, result);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -34,14 +67,23 @@ export function SideBySideDiff({
           <span>Kết quả (có thể chỉnh sửa)</span>
         </div>
         <span className="text-xs text-muted-foreground">
-          {formatStats(diff.stats)}
+          {diff ? formatStats(diff.stats) : "Đang so sánh..."}
         </span>
       </div>
 
       <div className="flex min-h-0 flex-1">
         <ScrollArea className="flex-1 border-r">
           <div className="p-4">
-            <DiffHighlight changes={diff.changes} />
+            {diff ? (
+              <DiffHighlight changes={diff.changes} />
+            ) : (
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-5/6" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+            )}
           </div>
         </ScrollArea>
         <div className="flex flex-1">

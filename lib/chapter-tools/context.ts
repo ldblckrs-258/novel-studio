@@ -16,6 +16,7 @@ export async function buildTranslateContext(
   novelId: string,
   currentChapterOrder: number,
   depth: ContextDepth = "standard",
+  nameDict?: Array<{ chinese: string; vietnamese: string }>,
 ): Promise<string | null> {
   const config = DEPTH_CONFIG[depth];
 
@@ -57,6 +58,22 @@ export async function buildTranslateContext(
       .map((ch) => `### ${ch.title}\n${ch.summary}`)
       .join("\n\n");
     parts.push(`## Tóm tắt chương trước\n${summaries}`);
+  }
+
+  // Name dictionary entries for translation consistency
+  if (nameDict && nameDict.length > 0) {
+    const MAX_NAME_ENTRIES = 500;
+    const entries = nameDict.length > MAX_NAME_ENTRIES
+      ? nameDict.slice(0, MAX_NAME_ENTRIES)
+      : nameDict;
+    const nameParts = entries
+      .map((e) => `${e.chinese} → ${e.vietnamese}`)
+      .join("\n");
+    let section = `## Bảng tên riêng\nKhi dịch, hãy sử dụng bảng tên sau để đảm bảo tính nhất quán:\n${nameParts}`;
+    if (nameDict.length > MAX_NAME_ENTRIES) {
+      section += `\n... và ${nameDict.length - MAX_NAME_ENTRIES} mục khác`;
+    }
+    parts.push(section);
   }
 
   return parts.length > 0 ? parts.join("\n\n") : null;
