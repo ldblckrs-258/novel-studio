@@ -1,6 +1,7 @@
 "use client";
 
 import { AnalysisDialog } from "@/components/analysis-dialog";
+import { BulkConvertDialog } from "@/components/novel/bulk-convert-dialog";
 import { BulkReplaceDialog } from "@/components/novel/bulk-replace-dialog";
 import { BulkTranslateDialog } from "@/components/bulk-translate-dialog";
 import { EditNovelDialog } from "@/components/edit-novel-dialog";
@@ -70,6 +71,8 @@ export default function NovelDetailPage() {
   const [translateChapterIds, setTranslateChapterIds] = useState<string[]>([]);
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [replaceChapterIds, setReplaceChapterIds] = useState<string[]>([]);
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [convertChapterIds, setConvertChapterIds] = useState<string[]>([]);
 
   // Word counts
   const chapterWordCounts = useMemo(() => {
@@ -100,6 +103,11 @@ export default function NovelDetailPage() {
   const handleReplace = (chapterIds: string[]) => {
     setReplaceChapterIds(chapterIds);
     setReplaceOpen(true);
+  };
+
+  const handleConvert = (chapterIds: string[]) => {
+    setConvertChapterIds(chapterIds);
+    setConvertOpen(true);
   };
 
   const handleExport = async () => {
@@ -319,6 +327,7 @@ export default function NovelDetailPage() {
             onAnalyze={handleAnalyze}
             onTranslate={handleTranslate}
             onReplace={handleReplace}
+            onConvert={handleConvert}
           />
         </TabsContent>
       </Tabs>
@@ -338,6 +347,15 @@ export default function NovelDetailPage() {
         onOpenChange={setReplaceOpen}
         novelId={id}
         chapterIds={replaceChapterIds}
+        chapters={chapters ?? []}
+      />
+
+      {/* Bulk convert dialog */}
+      <BulkConvertDialog
+        open={convertOpen}
+        onOpenChange={setConvertOpen}
+        novelId={id}
+        chapterIds={convertChapterIds}
         chapters={chapters ?? []}
       />
 

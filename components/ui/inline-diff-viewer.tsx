@@ -2,8 +2,9 @@
 
 import { cn } from "@/lib/utils";
 import { diffWords } from "diff";
-import { memo, useMemo, useRef } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { ScrollbarMarks } from "./scrollbar-marks";
+import { Skeleton } from "./skeleton";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -133,21 +134,14 @@ function computeInlineDiffLines(
 /* ------------------------------------------------------------------ */
 
 const DiffLines = memo(function DiffLines({
-  original,
-  modified,
+  diffLines,
   gutterFont,
   contentFont,
 }: {
-  original: string;
-  modified: string;
+  diffLines: DiffLine[];
   gutterFont: string;
   contentFont: string;
 }) {
-  const diffLines = useMemo(
-    () => computeInlineDiffLines(original, modified),
-    [original, modified],
-  );
-
   const gutterCls = cn(GUTTER_BASE, gutterFont);
   const contentCls = cn(CONTENT_BASE, contentFont);
 
@@ -207,16 +201,49 @@ export function InlineDiffViewer({
   gutterFont = "text-xs leading-5",
 }: InlineDiffViewerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [diffLines, setDiffLines] = useState<DiffLine[] | null>(null);
+
+  // Compute diff off the main thread via requestIdleCallback with debounce.
+  // Keeps stale result visible until new one is ready (avoids skeleton flash for small texts).
+  useEffect(() => {
+    let cancelled = false;
+    const debounce = setTimeout(() => {
+      const idleId = requestIdleCallback(
+        () => {
+          if (!cancelled) {
+            setDiffLines(computeInlineDiffLines(original, modified));
+          }
+        },
+        { timeout: 500 },
+      );
+      cleanupIdle = () => cancelIdleCallback(idleId);
+    }, 150);
+    let cleanupIdle: (() => void) | undefined;
+    return () => {
+      cancelled = true;
+      clearTimeout(debounce);
+      cleanupIdle?.();
+    };
+  }, [original, modified]);
 
   return (
     <div className={cn("relative rounded-md border", className)}>
       <div ref={scrollRef} className="h-full overflow-y-auto">
-        <DiffLines
-          original={original}
-          modified={modified}
-          gutterFont={gutterFont}
-          contentFont={contentFont}
-        />
+        {diffLines ? (
+          <DiffLines
+            diffLines={diffLines}
+            gutterFont={gutterFont}
+            contentFont={contentFont}
+          />
+        ) : (
+          <div className="space-y-2 p-4">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        )}
       </div>
       <ScrollbarMarks scrollRef={scrollRef} selector="[data-mark]" />
     </div>

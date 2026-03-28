@@ -32,6 +32,7 @@ import {
   LanguagesIcon,
   PencilIcon,
   PlusIcon,
+  GitCompareArrowsIcon,
   ReplaceAllIcon,
   SearchIcon,
   TrashIcon,
@@ -97,6 +98,7 @@ export function ChaptersTab({
   onAnalyze,
   onTranslate,
   onReplace,
+  onConvert,
 }: {
   novelId: string;
   chapters: Chapter[];
@@ -110,6 +112,7 @@ export function ChaptersTab({
   ) => void;
   onTranslate: (chapterIds: string[]) => void;
   onReplace?: (chapterIds: string[]) => void;
+  onConvert?: (chapterIds: string[]) => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -198,6 +201,15 @@ export function ChaptersTab({
                   >
                     <ReplaceAllIcon className="size-3.5" />
                     Thay thế đã chọn
+                  </button>
+                )}
+                {onConvert && (
+                  <button
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                    onClick={() => onConvert(Array.from(selected))}
+                  >
+                    <GitCompareArrowsIcon className="size-3.5" />
+                    Convert đã chọn
                   </button>
                 )}
               </PopoverContent>
