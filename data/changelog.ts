@@ -65,6 +65,22 @@ export const CATEGORY_META: Record<
 
 export const changelog: ChangelogRelease[] = [
   {
+    version: "0.6.0",
+    date: "2026-03-29",
+    title: "AI miễn phí trên trình duyệt với WebGPU",
+    summary:
+      "Chạy AI trực tiếp trên GPU của bạn qua WebGPU — không cần API key, không gửi dữ liệu ra ngoài. Hỗ trợ Qwen3, Llama 3.2 và DeepSeek R1 với quản lý model tích hợp.",
+    changes: [
+      {
+        category: "feature",
+        description: "Nhà cung cấp Chat AI WebGPU miễn phí",
+        details:
+          "Chạy model AI trực tiếp trên trình duyệt qua WebGPU mà không cần API key hay kết nối internet sau khi tải model. WebGPU luôn sẵn sàng như nhà cung cấp hệ thống — chọn trong cài đặt chat để bắt đầu. Phù hợp cho trò chuyện ngắn, model nhỏ chạy nhanh trên hầu hết máy tính có GPU.",
+        tags: ["AI", "WebGPU", "miễn phí"],
+      },
+    ],
+  },
+  {
     version: "0.5.0",
     date: "2026-03-28",
     title: "Tìm & Thay thế nâng cao",

@@ -34,10 +34,10 @@ function withJsonExtraction(model: LanguageModel): LanguageModel {
  * with extractJsonMiddleware to handle providers that return JSON
  * inside markdown fences or with extra text.
  */
-export function getModel(
+export async function getModel(
   provider: AIProvider,
   modelId: string,
-): LanguageModel {
+): Promise<LanguageModel> {
   const type: ProviderType = provider.providerType ?? "openai-compatible";
 
   switch (type) {
@@ -68,6 +68,11 @@ export function getModel(
           supportsStructuredOutputs: false,
         }).chatModel(modelId),
       );
+
+    case "webgpu": {
+      const { createWebGPUModel } = await import("./webgpu-provider");
+      return createWebGPUModel(modelId);
+    }
 
     case "openai-compatible":
     default:

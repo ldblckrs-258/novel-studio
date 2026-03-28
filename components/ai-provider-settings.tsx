@@ -50,6 +50,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { WebGPUModelManagerDialog } from "@/components/webgpu-model-status";
 import { PROVIDER_PRESETS, getPreset } from "@/lib/ai/presets";
 import type { AIProvider, ProviderType } from "@/lib/db";
 import { db } from "@/lib/db";
@@ -58,6 +59,7 @@ import {
   deleteAIModel,
   deleteAIProvider,
   fetchAndSyncModels,
+  isSystemProvider,
   updateAIProvider,
   useAIModels,
   useAIProviders,
@@ -66,6 +68,7 @@ import {
   ExternalLinkIcon,
   EyeIcon,
   EyeOffIcon,
+  HardDriveIcon,
   LoaderIcon,
   PencilIcon,
   PlusIcon,
@@ -111,6 +114,8 @@ function ProviderFormDialog({
       }
     }
   }
+
+  const isWebGPU = providerType === "webgpu";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -177,13 +182,13 @@ function ProviderFormDialog({
                 <Field>
                   <FieldLabel>Nền tảng</FieldLabel>
                   <div className="flex flex-wrap gap-1.5">
-                    {PROVIDER_PRESETS.map((p) => (
+                    {PROVIDER_PRESETS.filter((p) => p.type !== "webgpu").map((p) => (
                       <Tooltip key={p.type}>
                         <TooltipTrigger asChild>
                           <button
                             type="button"
                             onClick={() => handlePresetChange(p.type)}
-                            className={`flex size-10 items-center justify-center rounded-lg border transition-colors cursor-pointer ${
+                            className={`relative flex size-10 items-center justify-center rounded-lg border transition-colors cursor-pointer ${
                               providerType === p.type
                                 ? "border-primary bg-primary/10"
                                 : "hover:bg-muted/50"
@@ -220,8 +225,8 @@ function ProviderFormDialog({
                 />
               </Field>
 
-              {/* Base URL — only shown if editable or openai-compatible */}
-              {(preset?.baseUrlEditable || isEditing) && (
+              {/* Base URL — only shown if editable or openai-compatible (not for webgpu) */}
+              {!isWebGPU && (preset?.baseUrlEditable || isEditing) && (
                 <Field>
                   <FieldLabel>Base URL</FieldLabel>
                   <Input
@@ -238,32 +243,48 @@ function ProviderFormDialog({
                 </Field>
               )}
 
-              <Field>
-                <FieldLabel>Khóa API</FieldLabel>
-                <Input
-                  type="password"
-                  placeholder={preset?.apiKeyPlaceholder ?? "Khóa API"}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                />
-                <FieldDescription>
-                  Chỉ lưu trữ cục bộ trong trình duyệt của bạn.
-                  {preset?.apiKeyHelpUrl && (
-                    <>
-                      {" "}
-                      <a
-                        href={preset.apiKeyHelpUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-0.5 text-primary underline"
-                      >
-                        Lấy khóa API
-                        <ExternalLinkIcon className="size-3" />
-                      </a>
-                    </>
-                  )}
-                </FieldDescription>
-              </Field>
+              {/* WebGPU info banner */}
+              {isWebGPU && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
+                  <p className="font-medium text-primary">
+                    Chạy AI miễn phí trên trình duyệt
+                  </p>
+                  <p className="mt-1 text-muted-foreground">
+                    Model sẽ được tải về và chạy trực tiếp trên GPU của bạn qua
+                    WebGPU. Không cần API key hay kết nối internet sau khi tải.
+                  </p>
+                </div>
+              )}
+
+              {/* API Key — hidden for webgpu */}
+              {!isWebGPU && (
+                <Field>
+                  <FieldLabel>Khóa API</FieldLabel>
+                  <Input
+                    type="password"
+                    placeholder={preset?.apiKeyPlaceholder ?? "Khóa API"}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                  />
+                  <FieldDescription>
+                    Chỉ lưu trữ cục bộ trong trình duyệt của bạn.
+                    {preset?.apiKeyHelpUrl && (
+                      <>
+                        {" "}
+                        <a
+                          href={preset.apiKeyHelpUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-0.5 text-primary underline"
+                        >
+                          Lấy khóa API
+                          <ExternalLinkIcon className="size-3" />
+                        </a>
+                      </>
+                    )}
+                  </FieldDescription>
+                </Field>
+              )}
             </FieldGroup>
           </FieldSet>
           <DialogFooter className="mt-4">
@@ -294,10 +315,12 @@ function ProviderCard({ provider }: { provider: AIProvider }) {
   const models = useAIModels(provider.id);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [modelManagerOpen, setModelManagerOpen] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [showKey, setShowKey] = useState(false);
 
   const preset = getPreset(provider.providerType ?? "openai-compatible");
+  const isWebGPU = provider.providerType === "webgpu";
 
   async function handleFetchModels() {
     setFetching(true);
@@ -360,21 +383,42 @@ function ProviderCard({ provider }: { provider: AIProvider }) {
         </CardHeader>
 
         <CardContent className="space-y-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="font-medium">Khóa API:</span>
-            <code className="flex-1 truncate">
-              {showKey ? provider.apiKey || "Chưa đặt" : maskedKey}
-            </code>
-            {provider.apiKey && (
+          {/* API key display — hidden for WebGPU */}
+          {!isWebGPU && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="font-medium">Khóa API:</span>
+              <code className="flex-1 truncate">
+                {showKey ? provider.apiKey || "Chưa đặt" : maskedKey}
+              </code>
+              {provider.apiKey && (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => setShowKey(!showKey)}
+                >
+                  {showKey ? <EyeOffIcon /> : <EyeIcon />}
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* WebGPU info + manage button */}
+          {isWebGPU && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <Badge variant="outline" className="gap-1">
+                <span className="size-1.5 rounded-full bg-green-500" />
+                Miễn phí
+              </Badge>
               <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => setShowKey(!showKey)}
+                variant="outline"
+                size="xs"
+                onClick={() => setModelManagerOpen(true)}
               >
-                {showKey ? <EyeOffIcon /> : <EyeIcon />}
+                <HardDriveIcon className="size-3" />
+                Quản lý model
               </Button>
-            )}
-          </div>
+            </div>
+          )}
 
           <div>
             <div className="mb-2 flex items-center justify-between">
@@ -396,7 +440,7 @@ function ProviderCard({ provider }: { provider: AIProvider }) {
               </Button>
             </div>
             {models && models.length > 0 ? (
-              <div className="max-h-32 overflow-y-auto rounded-md border p-2">
+              <div className="h-32 overflow-y-auto rounded-md border p-2">
                 <div className="flex flex-wrap gap-1.5">
                   {models.map((m) => (
                     <Badge
@@ -457,6 +501,65 @@ function ProviderCard({ provider }: { provider: AIProvider }) {
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {isWebGPU && modelManagerOpen && (
+        <WebGPUModelManagerDialog
+          open={modelManagerOpen}
+          onOpenChange={setModelManagerOpen}
+        />
+      )}
+    </>
+  );
+}
+
+// ─── WebGPU System Card ──────────────────────────────────────
+
+function WebGPUSystemCard() {
+  const [modelManagerOpen, setModelManagerOpen] = useState(false);
+
+  return (
+    <>
+      <div className="mt-2">
+        <h2 className="mb-2 text-sm font-medium text-muted-foreground">
+          Nhà cung cấp hệ thống
+        </h2>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <ProviderIcon iconKey="webgpu" className="size-4" />
+              <CardTitle>WebGPU (Miễn phí)</CardTitle>
+            </div>
+            <CardDescription>
+              Chạy AI trực tiếp trên trình duyệt — không cần API key
+            </CardDescription>
+            <CardAction>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setModelManagerOpen(true)}
+              >
+                <HardDriveIcon className="size-3" />
+                Quản lý model
+              </Button>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xs text-muted-foreground">
+              <Badge variant="outline" className="gap-1">
+                <span className="size-1.5 rounded-full bg-green-500" />
+                Luôn sẵn sàng — chọn trong cài đặt chat
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {modelManagerOpen && (
+        <WebGPUModelManagerDialog
+          open={modelManagerOpen}
+          onOpenChange={setModelManagerOpen}
+        />
+      )}
     </>
   );
 }
@@ -464,8 +567,13 @@ function ProviderCard({ provider }: { provider: AIProvider }) {
 // ─── Main Component ─────────────────────────────────────────
 
 export function AIProviderSettings() {
-  const providers = useAIProviders();
+  const allProviders = useAIProviders();
   const [addOpen, setAddOpen] = useState(false);
+
+  // Filter out system providers — they are not user-manageable
+  const providers = allProviders?.filter(
+    (p) => !isSystemProvider(p.id),
+  );
 
   return (
     <div className="space-y-6">
@@ -475,7 +583,8 @@ export function AIProviderSettings() {
             Nhà cung cấp AI
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Cấu hình nền tảng AI cho trò chuyện và phân tích.
+            Cấu hình nền tảng AI cho trò chuyện và phân tích. WebGPU (miễn phí)
+            luôn sẵn sàng trong danh sách nhà cung cấp.
           </p>
         </div>
         <Button onClick={() => setAddOpen(true)}>
@@ -496,8 +605,8 @@ export function AIProviderSettings() {
             </EmptyMedia>
             <EmptyTitle>Chưa cấu hình nhà cung cấp</EmptyTitle>
             <EmptyDescription>
-              Thêm nhà cung cấp AI để bắt đầu. Hỗ trợ OpenAI, Anthropic, Google,
-              Groq và bất kỳ endpoint tương thích OpenAI.
+              WebGPU (miễn phí) đã sẵn sàng cho trò chuyện. Thêm nhà cung cấp
+              cloud AI để sử dụng phân tích và các công cụ khác.
             </EmptyDescription>
           </EmptyHeader>
           <Button variant="outline" onClick={() => setAddOpen(true)}>
@@ -512,6 +621,9 @@ export function AIProviderSettings() {
           ))}
         </div>
       )}
+
+      {/* System WebGPU provider — always shown, no CRUD */}
+      <WebGPUSystemCard />
 
       {addOpen && (
         <ProviderFormDialog open={addOpen} onOpenChange={setAddOpen} />

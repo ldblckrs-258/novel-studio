@@ -13,5 +13,5 @@ export async function resolveStep(
   if (!cfg?.providerId || !cfg?.modelId) return undefined;
   const provider = await db.aiProviders.get(cfg.providerId);
   if (!provider) return undefined;
-  return getModel(provider, cfg.modelId);
+  return await getModel(provider, cfg.modelId);
 }

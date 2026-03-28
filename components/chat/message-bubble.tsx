@@ -188,7 +188,7 @@ export function MessageBubble({
           ) : isError ? (
             <div className="flex gap-2">
               <AlertTriangleIcon className="mt-0.75 size-3 shrink-0" />
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 *:break-all">
                 <Streamdown mode="static" components={chatStreamdownComponents}>
                   {displayContent}
                 </Streamdown>

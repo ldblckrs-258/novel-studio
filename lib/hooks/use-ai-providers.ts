@@ -3,16 +3,41 @@
 import { db, type AIProvider } from "@/lib/db";
 import { useLiveQuery } from "dexie-react-hooks";
 
+// ─── System Provider (always available, no CRUD) ────────────
+
+export const WEBGPU_SYSTEM_PROVIDER: AIProvider = {
+  id: "webgpu-system",
+  name: "WebGPU (Miễn phí)",
+  baseUrl: "",
+  apiKey: "",
+  isActive: true,
+  providerType: "webgpu",
+  createdAt: new Date(0),
+  updatedAt: new Date(0),
+};
+
+export function isSystemProvider(id: string | undefined): boolean {
+  return id === WEBGPU_SYSTEM_PROVIDER.id;
+}
+
 // ─── Provider Queries ───────────────────────────────────────
 
 export function useAIProviders() {
-  return useLiveQuery(() =>
+  const dbProviders = useLiveQuery(() =>
     db.aiProviders.orderBy("createdAt").reverse().toArray(),
   );
+  if (!dbProviders) return undefined;
+  // Append system provider at the end (always available)
+  return [...dbProviders, WEBGPU_SYSTEM_PROVIDER];
 }
 
 export function useAIProvider(id: string | undefined) {
-  return useLiveQuery(() => (id ? db.aiProviders.get(id) : undefined), [id]);
+  const dbProvider = useLiveQuery(
+    () => (id && !isSystemProvider(id) ? db.aiProviders.get(id) : undefined),
+    [id],
+  );
+  if (isSystemProvider(id)) return WEBGPU_SYSTEM_PROVIDER;
+  return dbProvider;
 }
 
 export function useActiveProviders() {
@@ -46,14 +71,36 @@ export async function deleteAIProvider(id: string) {
 
 // ─── Model Queries ──────────────────────────────────────────
 
+// Static model entries for the system WebGPU provider (no DB storage)
+const WEBGPU_SYSTEM_MODELS = (() => {
+  // Lazy import to avoid circular deps — WEBGPU_MODELS is a simple array
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { WEBGPU_MODELS } = require("@/lib/ai/webgpu-provider");
+    return (WEBGPU_MODELS as Array<{ modelId: string; name: string; sizeLabel: string }>).map(
+      (m) => ({
+        id: m.modelId,
+        providerId: WEBGPU_SYSTEM_PROVIDER.id,
+        modelId: m.modelId,
+        name: `${m.name} (${m.sizeLabel})`,
+        createdAt: new Date(0),
+      }),
+    );
+  } catch {
+    return [];
+  }
+})();
+
 export function useAIModels(providerId: string | undefined) {
-  return useLiveQuery(
+  const dbModels = useLiveQuery(
     () =>
-      providerId
+      providerId && !isSystemProvider(providerId)
         ? db.aiModels.where("providerId").equals(providerId).toArray()
         : [],
     [providerId],
   );
+  if (isSystemProvider(providerId)) return WEBGPU_SYSTEM_MODELS;
+  return dbModels;
 }
 
 export function useAllAIModels() {
@@ -173,6 +220,9 @@ export async function fetchAndSyncModels(provider: AIProvider) {
     case "google":
       models = await fetchGoogleModels(provider.apiKey);
       break;
+    case "webgpu":
+      // System provider — models are static, no fetch needed
+      return WEBGPU_SYSTEM_MODELS.length;
     case "openai":
     case "groq":
     case "mistral":

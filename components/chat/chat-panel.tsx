@@ -193,7 +193,7 @@ export function ChatPanel() {
         ];
 
         const result = streamText({
-          model: getModel(selectedProvider, selectedModelId),
+          model: await getModel(selectedProvider, selectedModelId),
           messages: history,
           temperature,
           abortSignal: controller.signal,

@@ -92,7 +92,7 @@ export function AnalysisDialog({
       if (!cfg?.providerId || !cfg?.modelId) return undefined;
       const p = await db.aiProviders.get(cfg.providerId);
       if (!p) return undefined;
-      return getModel(p, cfg.modelId);
+      return await getModel(p, cfg.modelId);
     },
     [],
   );
@@ -114,7 +114,7 @@ export function AnalysisDialog({
 
     const commonOpts = {
       novelId,
-      defaultModel: getModel(provider, chatSettings.modelId),
+      defaultModel: await getModel(provider, chatSettings.modelId),
       signal: abortController?.signal,
       depth,
       customPrompts: {

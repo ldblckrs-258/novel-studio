@@ -17,7 +17,7 @@ export async function resolveChapterToolModel(
   const stepModel = await resolveStep(stepConfig);
   if (stepModel) return stepModel;
   if (provider && chatSettings?.modelId) {
-    return getModel(provider, chatSettings.modelId);
+    return await getModel(provider, chatSettings.modelId);
   }
   return null;
 }

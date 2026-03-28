@@ -124,6 +124,19 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   },
 ];
 
+// System provider preset (not in PROVIDER_PRESETS — not user-creatable)
+const WEBGPU_PRESET: ProviderPreset = {
+  type: "webgpu",
+  label: "WebGPU (Miễn phí)",
+  description: "Chạy AI trực tiếp trên trình duyệt",
+  defaultBaseUrl: "",
+  baseUrlEditable: false,
+  apiKeyPlaceholder: "",
+  iconKey: "webgpu",
+  popularModels: [],
+};
+
 export function getPreset(type: ProviderType): ProviderPreset | undefined {
+  if (type === "webgpu") return WEBGPU_PRESET;
   return PROVIDER_PRESETS.find((p) => p.type === type);
 }
