@@ -8,6 +8,7 @@ import type {
   QTWorkerResponse,
 } from "./qt-engine.types";
 import { DEFAULT_CONVERT_OPTIONS } from "./qt-engine.types";
+import { sify } from "chinese-conv";
 import {
   BRACKET_CLOSE,
   BRACKET_OPEN,
@@ -337,21 +338,40 @@ function scanLuatNhan(
 }
 
 /**
- * Pass 1: Create one micro-segment per character.
- * CJK chars get phienAm translation; others pass through as "unknown".
+ * Micro-segment with an extra lookup key for dict matching.
+ * `original` = display char (may be traditional), `_lk` = simplified char for dict lookup.
  */
-function createMicroSegments(text: string): ConvertSegment[] {
-  const segments: ConvertSegment[] = [];
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (isCJK(ch)) {
+interface MicroSegment extends ConvertSegment {
+  _lk: string;
+}
+
+/**
+ * Pass 1: Create one micro-segment per character.
+ * Uses simplified text for phienAm lookup (dict is simplified),
+ * but keeps original (possibly traditional) text for display.
+ */
+function createMicroSegments(
+  originalText: string,
+  simplifiedText: string,
+): MicroSegment[] {
+  const segments: MicroSegment[] = [];
+  for (let i = 0; i < originalText.length; i++) {
+    const origCh = originalText[i];
+    const simpCh = simplifiedText[i] ?? origCh;
+    if (isCJK(origCh)) {
       segments.push({
-        original: ch,
-        translated: phienAmMap.get(ch) ?? ch,
+        original: origCh,
+        translated: phienAmMap.get(simpCh) ?? phienAmMap.get(origCh) ?? origCh,
         source: "phienam",
+        _lk: simpCh,
       });
     } else {
-      segments.push({ original: ch, translated: ch, source: "unknown" });
+      segments.push({
+        original: origCh,
+        translated: origCh,
+        source: "unknown",
+        _lk: origCh,
+      });
     }
   }
   return segments;
@@ -360,9 +380,10 @@ function createMicroSegments(text: string): ConvertSegment[] {
 /**
  * Pass 2: Walk micro-segments, merge consecutive CJK segments when
  * a compound phrase is found in the priority maps (trie longest-match).
+ * Uses `_lk` (simplified) for dict lookup, keeps `original` (traditional) for display.
  */
 function trieMerge(
-  microSegments: ConvertSegment[],
+  microSegments: MicroSegment[],
   indexedPriorityMaps: Array<[ConvertSource, IndexedDict]>,
   maxPhraseLength: number,
 ): ConvertSegment[] {
@@ -372,36 +393,37 @@ function trieMerge(
   while (i < microSegments.length) {
     const seg = microSegments[i];
 
-    // Non-CJK passes through directly
     if (seg.source === "unknown") {
-      result.push(seg);
+      result.push({ original: seg.original, translated: seg.translated, source: seg.source });
       i++;
       continue;
     }
 
-    // Build lookahead string from consecutive CJK micro-segments
-    let combined = "";
+    // Build lookahead: _lk for dict lookup, original for display
+    let lookupCombined = "";
+    let originalCombined = "";
     let j = i;
     const maxLook = Math.min(i + maxPhraseLength, microSegments.length);
     while (j < maxLook && microSegments[j].source !== "unknown") {
-      combined += microSegments[j].original;
+      lookupCombined += microSegments[j]._lk;
+      originalCombined += microSegments[j].original;
       j++;
     }
-    // j is now the exclusive end of the CJK run
 
-    // Try longest-match in priority maps (length >= 2 for compounds)
+    // Try longest-match using simplified lookup key
     let matched = false;
+    const firstLk = seg._lk;
     for (const [source, indexed] of indexedPriorityMaps) {
-      const bucket = indexed.get(seg.original);
+      const bucket = indexed.get(firstLk);
       if (!bucket) continue;
-      const maxLen = Math.min(bucket.maxleng, combined.length);
+      const maxLen = Math.min(bucket.maxleng, lookupCombined.length);
 
       for (let len = maxLen; len >= 2; len--) {
-        const phrase = combined.substring(0, len);
-        if (bucket.entries.has(phrase)) {
+        const lookupPhrase = lookupCombined.substring(0, len);
+        if (bucket.entries.has(lookupPhrase)) {
           result.push({
-            original: phrase,
-            translated: bucket.entries.get(phrase)!,
+            original: originalCombined.substring(0, len),
+            translated: bucket.entries.get(lookupPhrase)!,
             source,
           });
           i += len;
@@ -413,14 +435,14 @@ function trieMerge(
     }
     if (matched) continue;
 
-    // No compound — try single-char lookup in priority maps
+    // No compound — try single-char lookup using simplified key
     let singleMatched = false;
     for (const [source, indexed] of indexedPriorityMaps) {
-      const bucket = indexed.get(seg.original);
-      if (bucket?.entries.has(seg.original)) {
+      const bucket = indexed.get(firstLk);
+      if (bucket?.entries.has(firstLk)) {
         result.push({
           original: seg.original,
-          translated: bucket.entries.get(seg.original)!,
+          translated: bucket.entries.get(firstLk)!,
           source,
         });
         singleMatched = true;
@@ -429,7 +451,7 @@ function trieMerge(
     }
 
     if (!singleMatched) {
-      result.push(seg); // keep phienAm
+      result.push({ original: seg.original, translated: seg.translated, source: seg.source });
     }
     i++;
   }
@@ -513,12 +535,14 @@ function convert(
   if (globalNamesMap) for (const [k, v] of globalNamesMap) allNames.set(k, v);
   if (novelNamesMap) for (const [k, v] of novelNamesMap) allNames.set(k, v);
 
-  // Auto-detect names based on surname + frequency heuristic
+  // Convert traditional→simplified once for all lookups (dict is simplified)
+  const simplified = sify(text) ?? text;
+
   let autoDetected: Map<string, string> | null = null;
   if (o.autoDetectNames) {
     const rejectedSet = new Set(o.rejectedAutoNames);
     autoDetected = detectNames(
-      text,
+      simplified,
       allNames,
       filteredVP,
       phienAmMap,
@@ -561,14 +585,8 @@ function convert(
 
   // ── 2-Pass pipeline ──────────────────────────────────────────
   //
-  // Step 1: LuatNhan pre-scan on raw text → matched regions
-  // Step 2: For gaps between LuatNhan regions:
-  //         Pass 1 — phienAm micro-segmentation (1 char = 1 segment)
-  //         Pass 2 — trie merge (longest-match compounds from priority maps)
-  // Result: every segment = exactly 1 dict entry OR 1 phienAm char
-
   const luatNhanRegions = scanLuatNhan(
-    text,
+    simplified, // use simplified for LuatNhan pattern matching
     allNames,
     filteredVP,
     effectiveMaxName,
@@ -579,21 +597,25 @@ function convert(
   let pos = 0;
 
   for (const region of luatNhanRegions) {
-    // Gap before this LuatNhan match → Pass 1 + Pass 2
     if (pos < region.start) {
-      const gapText = text.slice(pos, region.start);
-      const micro = createMicroSegments(gapText);
+      const gapOrig = text.slice(pos, region.start);
+      const gapSimp = simplified.slice(pos, region.start);
+      const micro = createMicroSegments(gapOrig, gapSimp);
       const merged = trieMerge(micro, indexedPriorityMaps, o.maxPhraseLength);
       segments.push(...merged);
     }
-    segments.push(region.segment);
+    // LuatNhan segment: keep original text from the original input
+    segments.push({
+      ...region.segment,
+      original: text.slice(region.start, region.end),
+    });
     pos = region.end;
   }
 
-  // Remaining text after last LuatNhan match
   if (pos < text.length) {
-    const gapText = text.slice(pos, text.length);
-    const micro = createMicroSegments(gapText);
+    const gapOrig = text.slice(pos, text.length);
+    const gapSimp = simplified.slice(pos, text.length);
+    const micro = createMicroSegments(gapOrig, gapSimp);
     const merged = trieMerge(micro, indexedPriorityMaps, o.maxPhraseLength);
     segments.push(...merged);
   }

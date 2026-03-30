@@ -24,6 +24,8 @@ const DICT_FILES: Record<DictSource, string> = {
   luatnhan: "/dict/luatnhan.txt",
 };
 
+const VIETPHRASE_OVERRIDE_URL = "/dict/vietphrase-override.txt";
+
 const ALL_SOURCES: DictSource[] = [
   "names",
   "names2",
@@ -54,6 +56,23 @@ function parseDictText(
 }
 
 // ─── Fast Loading (parallel fetch, direct to worker) ─────────
+
+/** Fetch override file and append entries to vietphrase (overrides take priority via Map.set) */
+async function appendOverrides(
+  result: Record<DictSource, Array<{ chinese: string; vietnamese: string }>>,
+): Promise<void> {
+  try {
+    const resp = await fetch(VIETPHRASE_OVERRIDE_URL);
+    if (!resp.ok) return;
+    const text = await resp.text();
+    const overrides = parseDictText(text);
+    if (overrides.length > 0) {
+      result.vietphrase = [...result.vietphrase, ...overrides];
+    }
+  } catch {
+    // Override file is optional — fail silently
+  }
+}
 
 /**
  * Load dict data optimized for worker initialization.
@@ -93,6 +112,8 @@ export async function loadDictDataForWorker(
       sources: counts as DictMeta["sources"],
     });
 
+    // Append override entries (higher priority, overwrites base entries via Map.set)
+    await appendOverrides(result);
     return result;
   }
 
@@ -167,6 +188,8 @@ export async function loadDictDataForWorker(
     }
   })();
 
+  // Append override entries (higher priority)
+  await appendOverrides(result);
   return result;
 }
 
@@ -309,6 +332,7 @@ export async function getDictEntriesForWorker(): Promise<
       const entry = cached.find((c) => c.source === source);
       result[source] = entry ? parseDictText(entry.rawText) : [];
     }
+    await appendOverrides(result);
     return result;
   }
 
@@ -327,5 +351,6 @@ export async function getDictEntriesForWorker(): Promise<
       vietnamese: e.vietnamese,
     }));
   }
+  await appendOverrides(result);
   return result;
 }
