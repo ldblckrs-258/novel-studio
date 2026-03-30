@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Novel Studio Connector",
+  "version": "0.1.0",
+  "description": "Fetch novel content from external websites for Novel Studio",
+  "permissions": ["tabs", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:*/*",
+      "https://localhost:*/*",
+      "https://novel-studio-kappa.vercel.app/*"
+    ]
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {}
+}

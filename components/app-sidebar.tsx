@@ -21,6 +21,7 @@ import {
   BookOpenIcon,
   DatabaseIcon,
   GitCompareArrowsIcon,
+  GlobeIcon,
   HistoryIcon,
   HomeIcon,
   LibraryIcon,
@@ -38,6 +39,7 @@ export const navConfig = [
   { title: "Thư viện", href: "/library", icon: LibraryIcon },
   { title: "Nhập sách", href: "/import", icon: UploadIcon },
   { title: "Convert nhanh", href: "/convert", icon: GitCompareArrowsIcon },
+  { title: "Scraper", href: "/scraper", icon: GlobeIcon },
   { title: "Nhà cung cấp AI", href: "/settings/providers", icon: ServerIcon },
   {
     title: "Chỉ thị chung",

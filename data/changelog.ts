@@ -65,6 +65,36 @@ export const CATEGORY_META: Record<
 
 export const changelog: ChangelogRelease[] = [
   {
+    version: "0.8.0",
+    date: "2026-03-30",
+    title: "Scraper — Nhập truyện từ website",
+    summary:
+      "Nhập truyện từ các trang web bên ngoài trực tiếp vào thư viện, không cần copy-paste thủ công.",
+    changes: [
+      {
+        category: "feature",
+        description: "Scraper truyện từ website",
+        details:
+          "Dán URL trang truyện, chọn chương muốn lấy, hệ thống tự động tải và nhập vào thư viện. Theo dõi tiến trình realtime với cảnh báo nếu chương nào tải lỗi.",
+        tags: ["scraper"],
+      },
+      {
+        category: "feature",
+        description: "Extension duyệt web đi kèm",
+        details:
+          "Cài tiện ích mở rộng Chrome nhẹ để vượt qua giới hạn trình duyệt khi tải nội dung. Tải trực tiếp từ trang Scraper, hướng dẫn cài đặt tích hợp sẵn.",
+        tags: ["scraper", "extension"],
+      },
+      {
+        category: "feature",
+        description: "Hỗ trợ lấy nội dung từ Sáng Tác Việt",
+        details:
+          "Cho phép tự động lấy nội dung chương từ Sáng Tác Việt. Lưu ý cần kiểm tra trang gốc hoạt động tốt trên trình duyệt của bạn trước khi chạy.",
+        tags: ["scraper"],
+      },
+    ],
+  },
+  {
     version: "0.7.0",
     date: "2026-03-30",
     title: "Trợ lý AI thông minh & Tìm kiếm toàn cục",

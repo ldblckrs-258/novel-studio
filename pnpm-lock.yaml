@@ -38,6 +38,9 @@ importers:
       '@huggingface/transformers':
         specifier: ^3.8.1
         version: 3.8.1
+      '@types/dompurify':
+        specifier: ^3.2.0
+        version: 3.2.0
       '@vercel/analytics':
         specifier: ^2.0.1
         version: 2.0.1(next@16.2.1(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
@@ -68,6 +71,9 @@ importers:
       diff:
         specifier: ^8.0.4
         version: 8.0.4
+      dompurify:
+        specifier: ^3.3.3
+        version: 3.3.3
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.2.4)
@@ -1775,6 +1781,10 @@ packages:
   '@types/diff@8.0.0':
     resolution: {integrity: sha512-o7jqJM04gfaYrdCecCVMbZhNdG6T1MHg/oQoRFdERLV+4d+V7FijhiEAbFu0Usww84Yijk9yH58U4Jk4HbtzZw==}
     deprecated: This is a stub types definition. diff provides its own type definitions, so you do not need this installed.
+
+  '@types/dompurify@3.2.0':
+    resolution: {integrity: sha512-Fgg31wv9QbLDA0SpTOXO3MaxySc4DKGLi8sna4/Utjo4r3ZRPdCt4UQee8BWr+Q5z21yifghREPJGYaEOEIACg==}
+    deprecated: This is a stub types definition. dompurify provides its own type definitions, so you do not need this installed.
 
   '@types/estree-jsx@1.0.5':
     resolution: {integrity: sha512-52CcUVNFyfb1A2ALocQw/Dd1BQFNmSdkuC3BkZ6iqhdMfQz7JWOFRuJFloOzjk+6WijU56m9oKXFAXc7o3Towg==}
@@ -6757,6 +6767,10 @@ snapshots:
   '@types/diff@8.0.0':
     dependencies:
       diff: 8.0.4
+
+  '@types/dompurify@3.2.0':
+    dependencies:
+      dompurify: 3.3.3
 
   '@types/estree-jsx@1.0.5':
     dependencies:
