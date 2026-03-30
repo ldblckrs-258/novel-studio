@@ -5,6 +5,7 @@ import {
   formatStats,
   type DiffResult,
 } from "@/lib/chapter-tools/diff-utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useDebouncedValue } from "@/lib/hooks/use-debounce";
 import { useLocalStorage } from "@/lib/hooks/use-local-storage";
 import { cn } from "@/lib/utils";
@@ -322,6 +323,7 @@ export function TextCompareEditor({
   storageKey = "default",
 }: TextCompareEditorProps) {
   /* ── mobile panel toggle ── */
+  const isMobile = useIsMobile();
   const [mobilePanel, setMobilePanel] = useState<"left" | "right">("left");
 
   /* ── persisted config ── */
@@ -395,13 +397,19 @@ export function TextCompareEditor({
 
   const handleScroll = useCallback(
     (source: "left" | "right") => (e: React.UIEvent<HTMLElement>) => {
+      // Mirror ALWAYS follows the textarea scroll — must run even when locked
+      const editableEl = isLeftEditable
+        ? leftScrollRef.current
+        : rightScrollRef.current;
+      if (editableMirrorRef.current && editableEl)
+        editableMirrorRef.current.style.transform = `translateY(${-editableEl.scrollTop}px)`;
+
       if (scrollLock.current) return;
       scrollLock.current = true;
 
-      const src = e.currentTarget;
-
       // cross-panel sync (only when enabled)
       if (config.syncScroll) {
+        const src = e.currentTarget;
         const srcMax = src.scrollHeight - src.clientHeight;
         const target = source === "left" ? rightScrollRef : leftScrollRef;
         if (target.current) {
@@ -415,13 +423,6 @@ export function TextCompareEditor({
           }
         }
       }
-
-      // mirror always follows the textarea's actual scrollTop
-      const editableEl = isLeftEditable
-        ? leftScrollRef.current
-        : rightScrollRef.current;
-      if (editableMirrorRef.current && editableEl)
-        editableMirrorRef.current.style.transform = `translateY(${-editableEl.scrollTop}px)`;
 
       // hold lock for 2 frames to absorb async bounce-back events
       requestAnimationFrame(() => {
@@ -468,7 +469,7 @@ export function TextCompareEditor({
     if (effectiveEditable) {
       return (
         <div className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden">
-          {/* Mirror — visible rendered lines (plain or diff-highlighted) */}
+          {/* Mirror — visible rendered lines, follows textarea scroll via translateY */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <div ref={editableMirrorRef}>{linesContent}</div>
           </div>
@@ -569,19 +570,21 @@ export function TextCompareEditor({
         </div>
       </div>
 
-      {/* Desktop: side-by-side panels */}
-      <div className={cn("hidden min-h-0 sm:flex", panelWrapperClassName)}>
-        {renderPanel("left", leftValue, isLeftEditable)}
-        <div className="w-px shrink-0 bg-border" />
-        {renderPanel("right", rightValue, !!onChange && !isLeftEditable)}
-      </div>
-
-      {/* Mobile: single panel view */}
-      <div className={cn("min-h-0 sm:hidden", panelWrapperClassName)}>
-        {mobilePanel === "left"
-          ? renderPanel("left", leftValue, isLeftEditable)
-          : renderPanel("right", rightValue, !!onChange && !isLeftEditable)}
-      </div>
+      {/* Panels: desktop side-by-side OR mobile single panel.
+          Only ONE layout renders to avoid duplicate refs (editableMirrorRef). */}
+      {isMobile ? (
+        <div className={cn("min-h-0", panelWrapperClassName)}>
+          {mobilePanel === "left"
+            ? renderPanel("left", leftValue, isLeftEditable)
+            : renderPanel("right", rightValue, !!onChange && !isLeftEditable)}
+        </div>
+      ) : (
+        <div className={cn("flex min-h-0", panelWrapperClassName)}>
+          {renderPanel("left", leftValue, isLeftEditable)}
+          <div className="w-px shrink-0 bg-border" />
+          {renderPanel("right", rightValue, !!onChange && !isLeftEditable)}
+        </div>
+      )}
     </div>
   );
 }
