@@ -80,6 +80,20 @@ export interface CharacterProfilingResult {
   characters: CharacterProfileResult[];
 }
 
+// ─── Pipeline Config ───────────────────────────────────────
+
+export interface SkipPhases {
+  chapters?: boolean;
+  aggregation?: boolean;
+  characters?: boolean;
+}
+
+export const EMPTY_CHAPTER_RESULT: ChapterAnalysisResult = {
+  summary: "Chương trống",
+  keyScenes: [],
+  characters: [],
+};
+
 // ─── Progress & Errors ──────────────────────────────────────
 
 export type AnalysisPhase =
@@ -91,6 +105,7 @@ export type AnalysisPhase =
 export interface AnalysisError {
   phase: string;
   chapterTitle?: string;
+  chapterIds?: string[];
   message: string;
 }
 
@@ -99,4 +114,5 @@ export interface AnalysisProgress {
   chaptersCompleted: number;
   totalChapters: number;
   error?: AnalysisError;
+  phaseResult?: { phase: string; result: "running" | "done" | "error" | "skipped" };
 }

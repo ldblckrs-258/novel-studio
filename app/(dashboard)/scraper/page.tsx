@@ -122,7 +122,7 @@ export default function ScraperPage() {
             <div key={s.key} className="flex items-center gap-1">
               {i > 0 && (
                 <ArrowRightIcon
-                  className={`size-3 ${i <= stepIndex ? "text-primary" : "text-border"}`}
+                  className={`size-3 shrink-0 ${i <= stepIndex ? "text-primary" : "text-border"}`}
                 />
               )}
               <button
@@ -130,7 +130,7 @@ export default function ScraperPage() {
                   if (i < stepIndex) store.setStep(s.key);
                 }}
                 disabled={i > stepIndex}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium transition-all sm:px-3 ${
                   i === stepIndex
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : i < stepIndex
@@ -139,9 +139,11 @@ export default function ScraperPage() {
                 }`}
               >
                 <s.icon
-                  className={`size-3 ${i === stepIndex && s.key === "scraping" ? "animate-spin" : ""}`}
+                  className={`size-3.5 shrink-0 sm:size-3 ${i === stepIndex && s.key === "scraping" ? "animate-spin" : ""}`}
                 />
-                {s.label}
+                <span className={i === stepIndex ? "sm:inline" : "hidden sm:inline"}>
+                  {s.label}
+                </span>
               </button>
             </div>
           ))}

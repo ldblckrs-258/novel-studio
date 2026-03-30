@@ -109,7 +109,7 @@ export default function ConvertPage() {
   return (
     <main className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden px-6 py-4">
       {/* ── Header ── */}
-      <div className="mb-4 flex shrink-0 items-start justify-between">
+      <div className="mb-4 flex shrink-0 items-start justify-between flex-col sm:flex-row gap-2">
         <div>
           <h1 className="font-serif text-2xl font-bold">Convert nhanh</h1>
           <p className="text-sm text-muted-foreground">

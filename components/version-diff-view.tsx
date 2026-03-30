@@ -102,7 +102,8 @@ export function VersionDiffView({
           rightValue={currentContent}
           showDiff
           storageKey="version-diff"
-          leftLabel="Phiên bản cũ | Hiện tại"
+          leftLabel="Phiên bản cũ"
+          rightLabel="Hiện tại"
           className="min-h-0 flex-1"
           panelWrapperClassName="min-h-0 h-[50vh]"
         />

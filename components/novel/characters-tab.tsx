@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +45,7 @@ import {
   UserIcon,
   ZapIcon,
 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { CharacterEditDialog } from "./character-edit-dialog";
 
@@ -162,11 +162,7 @@ function CharacterCard({
                 <CardTitle className="text-sm">{char.name}</CardTitle>
                 {hasDetails && (
                   <CollapsibleTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      className="shrink-0"
-                    >
+                    <Button variant="ghost" size="icon-xs" className="shrink-0">
                       <ChevronDownIcon
                         className={cn(
                           "size-3.5 transition-transform",
@@ -280,11 +276,7 @@ function CharacterCard({
                 label="Động lực"
                 value={char.motivations}
               />
-              <DetailRow
-                field="goals"
-                label="Mục tiêu"
-                value={char.goals}
-              />
+              <DetailRow field="goals" label="Mục tiêu" value={char.goals} />
             </div>
           </CollapsibleContent>
         </CardContent>
@@ -336,15 +328,13 @@ export function CharactersTab({
       {characters.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-12">
           <UserIcon className="size-8 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">
-            Chưa có nhân vật
-          </p>
+          <p className="text-sm text-muted-foreground">Chưa có nhân vật</p>
           <p className="text-xs text-muted-foreground/60">
             Thêm thủ công hoặc chạy phân tích AI
           </p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           {characters.map((char) => (
             <CharacterCard
               key={char.id}

@@ -136,7 +136,7 @@ export default function DashboardLayout({
             </Button>
           </div>
         </header>
-        <div className="flex-1 overflow-auto">{children}</div>
+        <div className="min-w-0 flex-1 overflow-auto">{children}</div>
       </SidebarInset>
       <ChatPanel />
       <NameDictPanel />

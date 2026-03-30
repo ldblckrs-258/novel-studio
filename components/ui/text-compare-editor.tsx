@@ -5,7 +5,6 @@ import {
   formatStats,
   type DiffResult,
 } from "@/lib/chapter-tools/diff-utils";
-import { ScrollbarMarks } from "./scrollbar-marks";
 import { useDebouncedValue } from "@/lib/hooks/use-debounce";
 import { useLocalStorage } from "@/lib/hooks/use-local-storage";
 import { cn } from "@/lib/utils";
@@ -23,6 +22,7 @@ import {
 import { Button } from "./button";
 import { Label } from "./label";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { ScrollbarMarks } from "./scrollbar-marks";
 import {
   Select,
   SelectContent,
@@ -186,9 +186,7 @@ const WordDiffLines = memo(function WordDiffLines({
       // Right panel: skip removed (belongs to left side only)
       if (side === "right" && change.removed) continue;
 
-      const highlighted = !!(side === "left"
-        ? change.removed
-        : change.added);
+      const highlighted = !!(side === "left" ? change.removed : change.added);
 
       const parts = change.value.split("\n");
       for (let i = 0; i < parts.length; i++) {
@@ -220,25 +218,24 @@ const WordDiffLines = memo(function WordDiffLines({
       {lines.map((spans, i) => {
         const hasHighlight = spans.some((s) => s.highlighted);
         return (
-        <div
-          key={i}
-          className={cn(LINE_CLS, hasHighlight && lineBgCls)}
-          {...(hasHighlight ? { "data-mark": true, "data-mark-color": markColor } : {})}
-        >
-          <span className={gutterCls}>{i + 1}</span>
-          <span className={contentCls}>
-            {spans.length === 0
-              ? "\u00A0"
-              : spans.map((s, j) => (
-                  <span
-                    key={j}
-                    className={s.highlighted ? hlCls : undefined}
-                  >
-                    {s.text}
-                  </span>
-                ))}
-          </span>
-        </div>
+          <div
+            key={i}
+            className={cn(LINE_CLS, hasHighlight && lineBgCls)}
+            {...(hasHighlight
+              ? { "data-mark": true, "data-mark-color": markColor }
+              : {})}
+          >
+            <span className={gutterCls}>{i + 1}</span>
+            <span className={contentCls}>
+              {spans.length === 0
+                ? "\u00A0"
+                : spans.map((s, j) => (
+                    <span key={j} className={s.highlighted ? hlCls : undefined}>
+                      {s.text}
+                    </span>
+                  ))}
+            </span>
+          </div>
         );
       })}
     </>
@@ -324,6 +321,9 @@ export function TextCompareEditor({
   panelWrapperClassName,
   storageKey = "default",
 }: TextCompareEditorProps) {
+  /* ── mobile panel toggle ── */
+  const [mobilePanel, setMobilePanel] = useState<"left" | "right">("left");
+
   /* ── persisted config ── */
 
   const [config, setConfig] = useLocalStorage<CompareEditorConfig>(
@@ -350,9 +350,7 @@ export function TextCompareEditor({
   /* ── sync mirror padding with textarea scrollbar width ── */
 
   useEffect(() => {
-    const editableScrollRef = isLeftEditable
-      ? leftScrollRef
-      : rightScrollRef;
+    const editableScrollRef = isLeftEditable ? leftScrollRef : rightScrollRef;
     const textarea = editableScrollRef.current;
     const mirror = editableMirrorRef.current;
     if (!textarea || !mirror) return;
@@ -460,7 +458,11 @@ export function TextCompareEditor({
         contentCls={contentCls}
       />
     ) : (
-      <PlainLines value={mirrorValue} gutterCls={gutterCls} contentCls={contentCls} />
+      <PlainLines
+        value={mirrorValue}
+        gutterCls={gutterCls}
+        contentCls={contentCls}
+      />
     );
 
     if (effectiveEditable) {
@@ -487,7 +489,7 @@ export function TextCompareEditor({
           />
           {showDiffHighlight && (
             <ScrollbarMarks
-              scrollRef={{ current: scrollRef.current } as React.RefObject<HTMLElement>}
+              scrollRef={scrollRef as React.RefObject<HTMLElement>}
               contentRef={editableMirrorRef}
               selector="[data-mark]"
             />
@@ -526,16 +528,40 @@ export function TextCompareEditor({
         className,
       )}
     >
-      {/* Header — always visible */}
-      <div className="flex shrink-0 items-center justify-between border-b bg-muted/30 px-4 py-1.5">
-        <div className="grid flex-1 grid-cols-2 gap-4 text-xs font-medium text-muted-foreground">
-          <span>{leftLabel}</span>
-          <span>{rightLabel}</span>
+      {/* Header — desktop: labels grid; mobile: tab switcher */}
+      <div className="flex shrink-0 items-center justify-between border-b bg-muted/30 px-2 py-1 sm:px-4 sm:py-1.5">
+        {/* Desktop: side-by-side labels */}
+        <div className="hidden flex-1 grid-cols-2 gap-4 text-xs font-medium text-muted-foreground sm:grid">
+          <span>{leftLabel || "Bản gốc"}</span>
+          <span>{rightLabel || "Kết quả"}</span>
+        </div>
+
+        {/* Mobile: segmented tab switcher */}
+        <div className="flex rounded-md border bg-muted/50 p-0.5 sm:hidden">
+          {(
+            [
+              { side: "left" as const, label: leftLabel || "Bản gốc" },
+              { side: "right" as const, label: rightLabel || "Kết quả" },
+            ] as const
+          ).map(({ side, label }) => (
+            <button
+              key={side}
+              onClick={() => setMobilePanel(side)}
+              className={cn(
+                "rounded px-3 py-1 text-xs font-medium transition-all",
+                mobilePanel === side
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground active:bg-background/50",
+              )}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
           {config.showDiff && diff && (
-            <span className="text-xs text-muted-foreground">
+            <span className="hidden text-xs text-muted-foreground sm:block">
               {formatStats(diff.stats)}
             </span>
           )}
@@ -543,11 +569,18 @@ export function TextCompareEditor({
         </div>
       </div>
 
-      {/* Panels */}
-      <div className={cn("flex min-h-0", panelWrapperClassName)}>
+      {/* Desktop: side-by-side panels */}
+      <div className={cn("hidden min-h-0 sm:flex", panelWrapperClassName)}>
         {renderPanel("left", leftValue, isLeftEditable)}
         <div className="w-px shrink-0 bg-border" />
         {renderPanel("right", rightValue, !!onChange && !isLeftEditable)}
+      </div>
+
+      {/* Mobile: single panel view */}
+      <div className={cn("min-h-0 sm:hidden", panelWrapperClassName)}>
+        {mobilePanel === "left"
+          ? renderPanel("left", leftValue, isLeftEditable)
+          : renderPanel("right", rightValue, !!onChange && !isLeftEditable)}
       </div>
     </div>
   );

@@ -19,6 +19,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { Chapter } from "@/lib/db";
 import { deleteChapter, type ChapterAnalysisStatus } from "@/lib/hooks";
 import {
@@ -29,20 +34,15 @@ import {
   CircleDashedIcon,
   ClockIcon,
   FileTextIcon,
+  GitCompareArrowsIcon,
   LanguagesIcon,
   PencilIcon,
   PlusIcon,
-  GitCompareArrowsIcon,
   ReplaceAllIcon,
   SearchIcon,
   TrashIcon,
   WrenchIcon,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -156,33 +156,32 @@ export function ChaptersTab({
   };
 
   return (
-    <div>
+    <div className="max-w-full overflow-x-hidden">
       {/* Toolbar */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-1.5 sm:gap-2">
         <Button size="sm" onClick={() => setAddOpen(true)}>
-          <PlusIcon className="mr-1.5 size-3.5" />
-          Thêm chương
+          <PlusIcon className="size-3.5 sm:mr-1.5" />
+          <span className="hidden sm:inline">Thêm chương</span>
         </Button>
         <Button size="sm" variant="outline" onClick={() => setBulkOpen(true)}>
-          <FileTextIcon className="mr-1.5 size-3.5" />
-          Thêm nhiều
+          <FileTextIcon className="size-3.5 sm:mr-1.5" />
+          <span className="hidden sm:inline">Thêm nhiều</span>
         </Button>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex gap-1.5 sm:gap-2">
           {selected.size > 0 && (
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm">
-                  <WrenchIcon className="mr-1.5 size-3.5" />
-                  Xử lý ({selected.size})
+                  <WrenchIcon className="size-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Xử lý</span>
+                  ({selected.size})
                   <ChevronDownIcon className="ml-1 size-3" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-48 p-1">
                 <button
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
-                  onClick={() =>
-                    onAnalyze("selected", Array.from(selected))
-                  }
+                  onClick={() => onAnalyze("selected", Array.from(selected))}
                 >
                   <SearchIcon className="size-3.5" />
                   Phân tích đã chọn
@@ -220,14 +219,21 @@ export function ChaptersTab({
               variant="outline"
               size="sm"
               onClick={() => onAnalyze("incremental")}
+              title={`Phân tích còn lại (${needsAnalysisCount})`}
             >
-              <SearchIcon className="mr-1.5 size-3.5" />
-              Phân tích còn lại ({needsAnalysisCount})
+              <SearchIcon className="size-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Phân tích còn lại ({needsAnalysisCount})</span>
+              <span className="sm:hidden">{needsAnalysisCount}</span>
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => onAnalyze("full")}>
-            <SearchIcon className="mr-1.5 size-3.5" />
-            Phân tích tất cả
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onAnalyze("full")}
+            title="Phân tích tất cả"
+          >
+            <SearchIcon className="size-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Phân tích tất cả</span>
           </Button>
         </div>
       </div>
@@ -239,20 +245,20 @@ export function ChaptersTab({
         </p>
       ) : (
         <div className="space-y-1">
-          {/* Header row */}
-          <div className="flex items-center gap-2 px-3 py-1 text-xs text-muted-foreground">
+          {/* Header row — hidden on mobile since layout changes */}
+          <div className="hidden min-w-0 items-center gap-2 px-3 py-1 text-xs text-muted-foreground sm:flex">
             <Checkbox
               checked={selected.size === chapters.length && chapters.length > 0}
               onCheckedChange={toggleAll}
-              className="size-3.5"
+              className="size-3.5 shrink-0"
             />
-            <span className="w-8">#</span>
-            <span className="flex-1">Tiêu đề</span>
-            <span className="w-16 text-right">Số từ</span>
-            <span className="hidden w-24 text-right sm:block">Chỉnh sửa</span>
-            <span className="hidden w-24 text-right sm:block">Phân tích</span>
-            <span className="w-8 sm:hidden" />
-            <span className="w-24" />
+            <span className="w-8 shrink-0">#</span>
+            <span className="min-w-0 flex-1">Tiêu đề</span>
+            <span className="w-14 shrink-0 text-right">Số từ</span>
+            <span className="hidden w-20 shrink-0 text-right lg:block">Chỉnh sửa</span>
+            <span className="hidden w-20 shrink-0 text-right lg:block">Phân tích</span>
+            <span className="w-6 shrink-0 lg:hidden" />
+            <span className="w-[4.5rem] shrink-0" />
           </div>
 
           {chapters.map((ch) => {
@@ -263,13 +269,69 @@ export function ChaptersTab({
 
             return (
               <div key={ch.id} className="rounded-lg border">
-                <div className="flex items-center gap-2 px-3 py-2">
+                {/* Mobile: two-line layout */}
+                <div className="sm:hidden">
+                  <button
+                    className="flex w-full items-center gap-2 px-3 pt-2 pb-1 text-left"
+                    onClick={() => setExpandedId(isExpanded ? null : ch.id)}
+                  >
+                    <Checkbox
+                      checked={selected.has(ch.id)}
+                      onCheckedChange={() => toggleSelect(ch.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="size-3.5 shrink-0"
+                    />
+                    <span className="w-6 shrink-0 text-center text-xs text-muted-foreground">
+                      {ch.order + 1}
+                    </span>
+                    {isExpanded ? (
+                      <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {ch.title}
+                    </span>
+                  </button>
+                  <div className="flex items-center gap-1 px-3 pb-1.5 pl-[3.75rem]">
+                    <span className="text-xs text-muted-foreground">
+                      {(wordCounts.get(ch.id) ?? 0).toLocaleString()} từ
+                    </span>
+                    <StatusIcon
+                      className={`ml-1 size-3 ${statusCfg.className}`}
+                    />
+                    <div className="ml-auto flex gap-0.5">
+                      <Button variant="ghost" size="icon-xs" asChild>
+                        <Link
+                          href={`/novels/${novelId}/read?chapter=${ch.order}`}
+                        >
+                          <BookOpenIcon className="size-3.5" />
+                        </Link>
+                      </Button>
+                      <Button variant="ghost" size="icon-xs" asChild>
+                        <Link href={`/novels/${novelId}/chapters/${ch.id}`}>
+                          <PencilIcon className="size-3.5" />
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => setDeleteTarget(ch)}
+                      >
+                        <TrashIcon className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desktop: single-line layout */}
+                <div className="hidden min-w-0 items-center gap-2 px-3 py-2 sm:flex">
                   <Checkbox
                     checked={selected.has(ch.id)}
                     onCheckedChange={() => toggleSelect(ch.id)}
-                    className="size-3.5"
+                    className="size-3.5 shrink-0"
                   />
-                  <span className="w-8 text-center text-xs text-muted-foreground">
+                  <span className="w-8 shrink-0 text-center text-xs text-muted-foreground">
                     {ch.order + 1}
                   </span>
                   <button
@@ -283,26 +345,32 @@ export function ChaptersTab({
                     )}
                     <span className="truncate font-medium">{ch.title}</span>
                   </button>
-                  <span className="w-16 text-right text-xs text-muted-foreground">
+                  <span className="w-14 shrink-0 text-right text-xs text-muted-foreground">
                     {(wordCounts.get(ch.id) ?? 0).toLocaleString()}
                   </span>
 
-                  {/* Edited time */}
+                  {/* Edited time — only on wide screens */}
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="hidden w-24 text-right text-xs text-muted-foreground sm:block">
+                      <span className="hidden w-20 shrink-0 text-right text-xs text-muted-foreground lg:block">
                         {formatDateTime(ch.updatedAt)}
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent>{formatDateTimeFull(ch.updatedAt)}</TooltipContent>
+                    <TooltipContent>
+                      {formatDateTimeFull(ch.updatedAt)}
+                    </TooltipContent>
                   </Tooltip>
 
-                  {/* Analyzed time */}
+                  {/* Analyzed time — only on wide screens */}
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className={`hidden w-24 items-center justify-end gap-1 text-xs sm:flex ${statusCfg.className}`}>
+                      <span
+                        className={`hidden w-20 shrink-0 items-center justify-end gap-1 text-xs lg:flex ${statusCfg.className}`}
+                      >
                         <StatusIcon className="size-3" />
-                        {ch.analyzedAt ? formatDateTime(ch.analyzedAt) : statusCfg.label}
+                        {ch.analyzedAt
+                          ? formatDateTime(ch.analyzedAt)
+                          : statusCfg.label}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -312,11 +380,11 @@ export function ChaptersTab({
                     </TooltipContent>
                   </Tooltip>
 
-                  {/* Mobile: single status icon */}
-                  <span className="flex w-8 justify-end sm:hidden">
+                  {/* Compact status icon when date columns are hidden */}
+                  <span className="flex w-6 shrink-0 justify-end lg:hidden">
                     <StatusIcon className={`size-3.5 ${statusCfg.className}`} />
                   </span>
-                  <div className="flex w-24 justify-end gap-1">
+                  <div className="flex w-[4.5rem] shrink-0 justify-end gap-0.5">
                     <Button variant="ghost" size="icon-xs" asChild>
                       <Link
                         href={`/novels/${novelId}/read?chapter=${ch.order}`}
@@ -341,14 +409,14 @@ export function ChaptersTab({
 
                 {/* Collapsible summary */}
                 {isExpanded && ch.summary && (
-                  <div className="border-t px-10 py-2">
+                  <div className="border-t px-4 py-2 sm:px-10">
                     <p className="text-xs leading-relaxed text-muted-foreground">
                       {ch.summary}
                     </p>
                   </div>
                 )}
                 {isExpanded && !ch.summary && (
-                  <div className="border-t px-10 py-2">
+                  <div className="border-t px-4 py-2 sm:px-10">
                     <p className="text-xs italic text-muted-foreground">
                       Chưa có tóm tắt — chạy phân tích để tạo.
                     </p>

@@ -83,6 +83,21 @@ export function useChapterAnalysisStatus(novelId: string | undefined) {
   );
 }
 
+export function useHasAnalyzedChapters(novelId: string | undefined) {
+  return useLiveQuery(
+    async () => {
+      if (!novelId) return false;
+      const count = await db.chapters
+        .where("novelId")
+        .equals(novelId)
+        .filter((ch) => !!ch.analyzedAt && !!ch.summary)
+        .count();
+      return count > 0;
+    },
+    [novelId],
+  );
+}
+
 export async function reorderChapters(
   chapters: { id: string; order: number }[]
 ) {

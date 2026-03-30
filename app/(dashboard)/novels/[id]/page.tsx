@@ -291,9 +291,9 @@ export default function NovelDetailPage() {
         }}
       >
         <TabsList className="w-full justify-center gap-1 p-1">
-          <TabsTrigger value="chapters" className="gap-2 px-3 py-1.5">
+          <TabsTrigger value="chapters" className="gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3">
             <ScrollTextIcon className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-            Chương
+            <span className="hidden sm:inline">Chương</span>
             {chapters && chapters.length > 0 && (
               <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500/10 px-1.5 py-px text-[10px] font-semibold tabular-nums text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
                 {chapters.length}
@@ -306,13 +306,13 @@ export default function NovelDetailPage() {
               />
             )}
           </TabsTrigger>
-          <TabsTrigger value="world-building" className="gap-2 px-3 py-1.5">
+          <TabsTrigger value="world-building" className="gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3">
             <GlobeIcon className="size-3.5 text-blue-600 dark:text-blue-400" />
-            Thế giới quan
+            <span className="hidden sm:inline">Thế giới quan</span>
           </TabsTrigger>
-          <TabsTrigger value="characters" className="gap-2 px-3 py-1.5">
+          <TabsTrigger value="characters" className="gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3">
             <UsersIcon className="size-3.5 text-violet-600 dark:text-violet-400" />
-            Nhân vật
+            <span className="hidden sm:inline">Nhân vật</span>
             {characters && characters.length > 0 && (
               <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-violet-500/10 px-1.5 py-px text-[10px] font-semibold tabular-nums text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
                 {characters.length}

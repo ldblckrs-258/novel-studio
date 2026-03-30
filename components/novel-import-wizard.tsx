@@ -227,21 +227,20 @@ export function NovelImportWizard() {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
       {/* Step indicator */}
-      <div className="flex items-center gap-2 justify-center">
+      <div className="flex items-center gap-1 justify-center sm:gap-2">
         {STEPS.map((s, i) => (
-          <div key={s.key} className="flex items-center gap-2">
+          <div key={s.key} className="flex items-center gap-1 sm:gap-2">
             {i > 0 && (
               <div
-                className={`h-px w-8 ${i <= stepIndex ? "bg-primary" : "bg-border"}`}
+                className={`h-px w-4 sm:w-8 ${i <= stepIndex ? "bg-primary" : "bg-border"}`}
               />
             )}
             <button
               onClick={() => {
-                // Allow going back to completed steps
                 if (i < stepIndex) setStep(s.key);
               }}
               disabled={i > stepIndex}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium transition-colors sm:px-3 ${
                 i === stepIndex
                   ? "bg-primary text-primary-foreground"
                   : i < stepIndex
@@ -249,8 +248,10 @@ export function NovelImportWizard() {
                     : "bg-muted text-muted-foreground"
               }`}
             >
-              <s.icon className="size-3.5" />
-              {s.label}
+              <s.icon className="size-3.5 shrink-0" />
+              <span className={i === stepIndex ? "sm:inline" : "hidden sm:inline"}>
+                {s.label}
+              </span>
             </button>
           </div>
         ))}

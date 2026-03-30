@@ -65,6 +65,36 @@ export const CATEGORY_META: Record<
 
 export const changelog: ChangelogRelease[] = [
   {
+    version: "0.8.1",
+    date: "2026-03-30",
+    title: "Phân tích thông minh & Giao diện di động",
+    summary:
+      "Tối ưu phân tích AI với retry thông minh, bật/tắt từng bước, và cải thiện toàn diện giao diện trên điện thoại.",
+    changes: [
+      {
+        category: "improvement",
+        description: "Phân tích AI: retry thông minh và bật/tắt từng bước",
+        details:
+          "Khi phân tích gặp lỗi, chỉ chạy lại phần thất bại thay vì toàn bộ. Bật/tắt từng bước (phân tích chương, tổng hợp, hồ sơ nhân vật) trước khi chạy. Có thể sửa mô hình và prompt ngay khi gặp lỗi rồi thử lại.",
+        tags: ["phân tích", "AI"],
+      },
+      {
+        category: "improvement",
+        description: "Giao diện di động tối ưu toàn diện",
+        details:
+          "Tối ưu bố cục, kích thước nút, và trải nghiệm tương tác cho người dùng trên điện thoại.",
+        tags: ["giao diện", "di động"],
+      },
+      {
+        category: "fix",
+        description: "Sửa tràn nội dung khi mở bảng chat",
+        details:
+          "Danh sách chương và trang chủ không còn bị tràn sang phải khi mở bảng trò chuyện AI hoặc trên màn hình nhỏ.",
+        tags: ["giao diện", "sửa lỗi"],
+      },
+    ],
+  },
+  {
     version: "0.8.0",
     date: "2026-03-30",
     title: "Scraper — Nhập truyện từ website",

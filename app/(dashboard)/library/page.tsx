@@ -252,7 +252,7 @@ export default function LibraryPage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-8">
       {/* Header */}
-      <div className="mb-6 flex items-end justify-between gap-4">
+      <div className="mb-6 flex sm:items-end justify-between gap-4 flex-col sm:flex-row">
         <div>
           <h1 className="font-heading text-3xl font-bold tracking-tight">
             Thư viện

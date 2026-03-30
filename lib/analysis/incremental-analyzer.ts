@@ -10,7 +10,13 @@ import {
   resolvePrompts,
   buildCharacterPrompt,
 } from "./prompts";
-import type { AnalysisError, AnalysisProgress, ChapterAnalysisResult } from "./types";
+import {
+  EMPTY_CHAPTER_RESULT,
+  type AnalysisError,
+  type AnalysisProgress,
+  type ChapterAnalysisResult,
+  type SkipPhases,
+} from "./types";
 import {
   type AnalysisDepth,
   getBudget,
@@ -19,27 +25,7 @@ import {
   capCharacterMentions,
   type BatchItem,
 } from "./token-budget";
-
-const CONCURRENCY_LIMIT = 3;
-
-async function runWithConcurrency<T>(
-  tasks: (() => Promise<T>)[],
-  limit: number,
-): Promise<T[]> {
-  const results: T[] = new Array(tasks.length);
-  let nextIndex = 0;
-  async function runNext(): Promise<void> {
-    while (nextIndex < tasks.length) {
-      const index = nextIndex++;
-      results[index] = await tasks[index]();
-    }
-  }
-  const workers = Array.from({ length: Math.min(limit, tasks.length) }, () =>
-    runNext(),
-  );
-  await Promise.all(workers);
-  return results;
-}
+import { CONCURRENCY_LIMIT, runWithConcurrency } from "./concurrency";
 
 // ─── Result Summary ─────────────────────────────────────────
 
@@ -73,6 +59,8 @@ export interface IncrementalAnalyzeOptions {
   globalSystemInstruction?: string;
   /** When provided, only analyze these specific chapters (ignoring stale detection) */
   selectedChapterIds?: string[];
+  /** Skip specific phases (for retry or user toggle) */
+  skipPhases?: SkipPhases;
 }
 
 /**
@@ -93,6 +81,7 @@ export async function analyzeNovelIncremental({
   stepModels,
   globalSystemInstruction,
   selectedChapterIds,
+  skipPhases,
 }: IncrementalAnalyzeOptions): Promise<IncrementalResultSummary> {
   const budget = getBudget(depth);
   const rawPrompts = resolvePrompts(customPrompts);
@@ -134,10 +123,6 @@ export async function analyzeNovelIncremental({
     upToDate = result.upToDate;
   }
 
-  if (needsAnalysis.length === 0) {
-    throw new Error("Không có chương nào cần phân tích");
-  }
-
   const allChapters = [...upToDate, ...needsAnalysis].sort(
     (a, b) => a.order - b.order,
   );
@@ -157,150 +142,213 @@ export async function analyzeNovelIncremental({
 
   // ── Phase 1: Analyze only changed/new chapters ──────────
 
-  const chapterContents: BatchItem[] = [];
-  for (const chapter of needsAnalysis) {
-    const scenes = await db.scenes
-      .where("[chapterId+isActive]")
-      .equals([chapter.id, 1])
-      .sortBy("order");
-    const content = scenes.map((s) => s.content).join("\n\n");
-    chapterContents.push({
-      chapterIndex: allChapters.findIndex((c) => c.id === chapter.id),
-      title: chapter.title,
-      content,
-      tokens: estimateTokens(content),
-    });
-  }
-
-  const batches = batchChapters(chapterContents, budget.batchTargetTokens);
-  let chaptersCompleted = 0;
   const newChapterResults: {
     chapterId: string;
     title: string;
     result: ChapterAnalysisResult;
   }[] = [];
 
-  const batchTasks = batches.map((batch) => async () => {
-    signal?.throwIfAborted();
+  if (skipPhases?.chapters) {
+    // Phase 1 skipped — load existing results from DB for Phase 2/3
+    onProgress?.({
+      phase: "chapters",
+      chaptersCompleted: totalToAnalyze,
+      totalChapters: totalToAnalyze,
+      phaseResult: { phase: "chapters", result: "skipped" },
+    });
 
-    try {
-      let results: ChapterAnalysisResult[];
+    // Load previously analyzed chapters for downstream phases
+    // Reconstruct character mentions from DB so Phase 3 can work
+    const existingCharacters = await db.characters
+      .where("novelId")
+      .equals(novelId)
+      .toArray();
+    const charById = new Map(existingCharacters.map((c) => [c.id, c]));
 
-      if (batch.length === 1) {
-        const item = batch[0];
-        if (!item.content.trim()) {
-          results = [
-            { summary: "Chương trống", keyScenes: [], characters: [] },
-          ];
-        } else {
-          results = [
-            await analyzeChapter(
-              chapterModel,
-              item.title,
-              item.content,
-              signal,
-              budget.maxChapterTokens,
-              prepend(rawPrompts.chapterAnalysis),
-            ),
-          ];
-        }
-      } else {
-        const nonEmpty = batch.filter((b) => b.content.trim());
-        if (nonEmpty.length === 0) {
-          results = batch.map(() => ({
-            summary: "Chương trống",
-            keyScenes: [],
-            characters: [],
+    for (const ch of allChapters) {
+      if (ch.summary && ch.analyzedAt) {
+        const characters = (ch.characterIds ?? [])
+          .map((id) => charById.get(id))
+          .filter(Boolean)
+          .map((c) => ({
+            name: c!.name,
+            role: c!.role ?? "unknown",
+            noteInChapter: c!.description ?? "",
           }));
-        } else {
-          const batchResults = await analyzeBatchChapters(
-            chapterModel,
-            nonEmpty.map((b) => ({ title: b.title, content: b.content })),
-            signal,
-            budget.maxChapterTokens,
-            prepend(rawPrompts.batchChapterAnalysis),
-          );
-          let resultIdx = 0;
-          results = batch.map((b) => {
-            if (!b.content.trim()) {
-              return {
-                summary: "Chương trống",
-                keyScenes: [],
-                characters: [],
-              };
-            }
-            return batchResults[resultIdx++];
-          });
-        }
-      }
-
-      for (let i = 0; i < batch.length; i++) {
-        const item = batch[i];
-        const chapter = allChapters[item.chapterIndex];
-        const result = results[i];
-        const ts = new Date();
-
-        await db.chapters.update(chapter.id, {
-          summary: result.summary,
-          analyzedAt: ts,
-          updatedAt: ts,
-        });
 
         newChapterResults.push({
-          chapterId: chapter.id,
-          title: item.title,
-          result,
-        });
-
-        chaptersCompleted++;
-        onProgress?.({
-          phase: "chapters",
-          chaptersCompleted,
-          totalChapters: totalToAnalyze,
-        });
-        await db.novels.update(novelId, {
-          chaptersAnalyzed: chaptersCompleted,
-          updatedAt: new Date(),
+          chapterId: ch.id,
+          title: ch.title,
+          result: {
+            summary: ch.summary,
+            keyScenes: [],
+            characters,
+          },
         });
       }
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") throw err;
-
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      for (const item of batch) {
-        const error: AnalysisError = {
-          phase: "chapters",
-          chapterTitle: item.title,
-          message: msg,
-        };
-        errors.push(error);
-        onProgress?.({
-          phase: "chapters",
-          chaptersCompleted,
-          totalChapters: totalToAnalyze,
-          error,
-        });
-      }
-      chaptersCompleted += batch.length;
-      onProgress?.({
-        phase: "chapters",
-        chaptersCompleted,
-        totalChapters: totalToAnalyze,
+    }
+    summary.chaptersAnalyzed = 0;
+  } else if (needsAnalysis.length === 0) {
+    // Nothing to analyze
+    onProgress?.({
+      phase: "chapters",
+      chaptersCompleted: 0,
+      totalChapters: 0,
+      phaseResult: { phase: "chapters", result: "done" },
+    });
+  } else {
+    const chapterContents: BatchItem[] = [];
+    for (const chapter of needsAnalysis) {
+      const scenes = await db.scenes
+        .where("[chapterId+isActive]")
+        .equals([chapter.id, 1])
+        .sortBy("order");
+      const content = scenes.map((s) => s.content).join("\n\n");
+      chapterContents.push({
+        chapterIndex: allChapters.findIndex((c) => c.id === chapter.id),
+        title: chapter.title,
+        content,
+        tokens: estimateTokens(content),
       });
     }
-  });
 
-  await runWithConcurrency(batchTasks, CONCURRENCY_LIMIT);
-  summary.chaptersAnalyzed = newChapterResults.length;
+    const batches = batchChapters(chapterContents, budget.batchTargetTokens);
+    let chaptersCompleted = 0;
+
+    const batchTasks = batches.map((batch) => async () => {
+      signal?.throwIfAborted();
+
+      try {
+        let results: ChapterAnalysisResult[];
+
+        if (batch.length === 1) {
+          const item = batch[0];
+          if (!item.content.trim()) {
+            results = [EMPTY_CHAPTER_RESULT];
+          } else {
+            results = [
+              await analyzeChapter(
+                chapterModel,
+                item.title,
+                item.content,
+                signal,
+                budget.maxChapterTokens,
+                prepend(rawPrompts.chapterAnalysis),
+              ),
+            ];
+          }
+        } else {
+          const nonEmpty = batch.filter((b) => b.content.trim());
+          if (nonEmpty.length === 0) {
+            results = batch.map(() => EMPTY_CHAPTER_RESULT);
+          } else {
+            const batchResults = await analyzeBatchChapters(
+              chapterModel,
+              nonEmpty.map((b) => ({ title: b.title, content: b.content })),
+              signal,
+              budget.maxChapterTokens,
+              prepend(rawPrompts.batchChapterAnalysis),
+            );
+            let resultIdx = 0;
+            results = batch.map((b) => {
+              if (!b.content.trim()) {
+                return EMPTY_CHAPTER_RESULT;
+              }
+              return batchResults[resultIdx++];
+            });
+          }
+        }
+
+        for (let i = 0; i < batch.length; i++) {
+          const item = batch[i];
+          const chapter = allChapters[item.chapterIndex];
+          const result = results[i];
+          const ts = new Date();
+
+          await db.chapters.update(chapter.id, {
+            summary: result.summary,
+            analyzedAt: ts,
+            updatedAt: ts,
+          });
+
+          newChapterResults.push({
+            chapterId: chapter.id,
+            title: item.title,
+            result,
+          });
+
+          chaptersCompleted++;
+          onProgress?.({
+            phase: "chapters",
+            chaptersCompleted,
+            totalChapters: totalToAnalyze,
+          });
+          await db.novels.update(novelId, {
+            chaptersAnalyzed: chaptersCompleted,
+            updatedAt: new Date(),
+          });
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") throw err;
+
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        const chapterIds = batch.map((item) => allChapters[item.chapterIndex].id);
+        for (const item of batch) {
+          const error: AnalysisError = {
+            phase: "chapters",
+            chapterTitle: item.title,
+            chapterIds,
+            message: msg,
+          };
+          errors.push(error);
+          onProgress?.({
+            phase: "chapters",
+            chaptersCompleted,
+            totalChapters: totalToAnalyze,
+            error,
+          });
+        }
+        chaptersCompleted += batch.length;
+        onProgress?.({
+          phase: "chapters",
+          chaptersCompleted,
+          totalChapters: totalToAnalyze,
+        });
+      }
+    });
+
+    await runWithConcurrency(batchTasks, CONCURRENCY_LIMIT);
+    summary.chaptersAnalyzed = newChapterResults.length;
+
+    // Report Phase 1 result
+    const chapterErrors = errors.filter((e) => e.phase === "chapters");
+    onProgress?.({
+      phase: "chapters",
+      chaptersCompleted: totalToAnalyze,
+      totalChapters: totalToAnalyze,
+      phaseResult: {
+        phase: "chapters",
+        result: chapterErrors.length > 0 ? "error" : "done",
+      },
+    });
+  }
 
   // ── Phase 2: Incremental aggregation via tool calls ─────
-  if (newChapterResults.length > 0) {
+  if (skipPhases?.aggregation) {
+    onProgress?.({
+      phase: "aggregation",
+      chaptersCompleted: totalToAnalyze,
+      totalChapters: totalToAnalyze,
+      phaseResult: { phase: "aggregation", result: "skipped" },
+    });
+  } else if (newChapterResults.length > 0) {
     try {
       signal?.throwIfAborted();
       onProgress?.({
         phase: "aggregation",
         chaptersCompleted: totalToAnalyze,
         totalChapters: totalToAnalyze,
+        phaseResult: { phase: "aggregation", result: "running" },
       });
 
       const currentNovel = await db.novels.get(novelId);
@@ -410,22 +458,43 @@ Dựa trên các chương mới, hãy gọi các công cụ phù hợp để c�
           }
         }
       }
+
+      onProgress?.({
+        phase: "aggregation",
+        chaptersCompleted: totalToAnalyze,
+        totalChapters: totalToAnalyze,
+        phaseResult: { phase: "aggregation", result: "done" },
+      });
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") throw err;
       const error: AnalysisError = { phase: "aggregation", message: err instanceof Error ? err.message : "Unknown error" };
       errors.push(error);
-      onProgress?.({ phase: "aggregation", chaptersCompleted: totalToAnalyze, totalChapters: totalToAnalyze, error });
+      onProgress?.({
+        phase: "aggregation",
+        chaptersCompleted: totalToAnalyze,
+        totalChapters: totalToAnalyze,
+        error,
+        phaseResult: { phase: "aggregation", result: "error" },
+      });
     }
   }
 
   // ── Phase 3: Incremental character update via tool calls ──
-  if (newChapterResults.length > 0) {
+  if (skipPhases?.characters) {
+    onProgress?.({
+      phase: "characters",
+      chaptersCompleted: totalToAnalyze,
+      totalChapters: totalToAnalyze,
+      phaseResult: { phase: "characters", result: "skipped" },
+    });
+  } else if (newChapterResults.length > 0) {
     try {
       signal?.throwIfAborted();
       onProgress?.({
         phase: "characters",
         chaptersCompleted: totalToAnalyze,
         totalChapters: totalToAnalyze,
+        phaseResult: { phase: "characters", result: "running" },
       });
 
       const rawCharacterMap = new Map<string, string[]>();
@@ -532,11 +601,24 @@ Trả lời bằng Tiếng Việt.`),
           await db.chapters.update(cr.chapterId, { characterIds: charRecords.map((c) => c.id), updatedAt: new Date() });
         }
       }
+
+      onProgress?.({
+        phase: "characters",
+        chaptersCompleted: totalToAnalyze,
+        totalChapters: totalToAnalyze,
+        phaseResult: { phase: "characters", result: "done" },
+      });
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") throw err;
       const error: AnalysisError = { phase: "characters", message: err instanceof Error ? err.message : "Unknown error" };
       errors.push(error);
-      onProgress?.({ phase: "characters", chaptersCompleted: totalToAnalyze, totalChapters: totalToAnalyze, error });
+      onProgress?.({
+        phase: "characters",
+        chaptersCompleted: totalToAnalyze,
+        totalChapters: totalToAnalyze,
+        error,
+        phaseResult: { phase: "characters", result: "error" },
+      });
     }
   }
 

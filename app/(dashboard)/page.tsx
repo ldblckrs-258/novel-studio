@@ -67,7 +67,7 @@ export default function DashboardPage() {
   const topNovels = useTopNovelsByChapters(5);
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-6 py-8">
+    <main className="mx-auto w-full min-w-0 max-w-5xl overflow-hidden px-6 py-8">
       {/* Header */}
       <div className="mb-6">
         <h1 className="font-heading text-3xl font-bold tracking-tight">
@@ -118,7 +118,7 @@ export default function DashboardPage() {
       {/* Main content: 2/3 + 1/3 */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Recent chapters — left 2/3 */}
-        <Card className="lg:col-span-2">
+        <Card className="min-w-0 lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base">Chương gần đây</CardTitle>
             <CardDescription>
@@ -152,7 +152,7 @@ export default function DashboardPage() {
                   <Link
                     key={ch.id}
                     href={`/novels/${ch.novelId}/chapters/${ch.id}`}
-                    className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50"
+                    className="flex items-center gap-3 overflow-hidden rounded-md px-2 py-2 transition-colors hover:bg-muted/50"
                   >
                     {ch.novelColor && (
                       <div
@@ -166,7 +166,7 @@ export default function DashboardPage() {
                         {ch.novelTitle}
                       </p>
                     </div>
-                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    <span className="hidden shrink-0 text-xs text-muted-foreground tabular-nums sm:block">
                       {ch.wordCount.toLocaleString()} từ
                     </span>
                     <span className="shrink-0 text-xs text-muted-foreground/60">
@@ -180,7 +180,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Right column */}
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6">
           {/* Top novels */}
           <Card>
             <CardHeader>
@@ -207,7 +207,7 @@ export default function DashboardPage() {
                     <Link
                       key={item.novel.id}
                       href={`/novels/${item.novel.id}`}
-                      className="flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/50"
+                      className="flex items-center gap-3 overflow-hidden rounded-md px-2 py-1.5 transition-colors hover:bg-muted/50"
                     >
                       <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold">
                         {i + 1}

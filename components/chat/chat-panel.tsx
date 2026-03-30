@@ -213,10 +213,8 @@ export function ChatPanel() {
         );
 
         // Build system prompt with optional novel context
-        const {
-          attachedNovelId: ctxNovelId,
-          attachedChapterId: ctxChapterId,
-        } = useChatPanel.getState();
+        const { attachedNovelId: ctxNovelId, attachedChapterId: ctxChapterId } =
+          useChatPanel.getState();
         let contextEnhancedPrompt = systemPrompt;
         if (ctxNovelId) {
           const { buildNovelContext } = await import("@/lib/ai/novel-context");
@@ -348,9 +346,7 @@ export function ChatPanel() {
             lastParsedContent = stepParsed.content;
             const stepReasoning = apiReasoning
               ? apiReasoning +
-                (stepParsed.reasoning
-                  ? "\n\n" + stepParsed.reasoning
-                  : "")
+                (stepParsed.reasoning ? "\n\n" + stepParsed.reasoning : "")
               : stepParsed.reasoning;
             if (stepReasoning) setStreamingReasoning(stepReasoning);
             setStreamingContent(stepParsed.content);
@@ -556,7 +552,13 @@ export function ChatPanel() {
         abortRef.current = null;
       }
     },
-    [selectedProvider, selectedModelId, systemPrompt, temperature, maxToolSteps],
+    [
+      selectedProvider,
+      selectedModelId,
+      systemPrompt,
+      temperature,
+      maxToolSteps,
+    ],
   );
 
   const handleSend = useCallback(async () => {
@@ -725,9 +727,7 @@ export function ChatPanel() {
           temperature={temperature}
           onTemperatureChange={(t) => updateChatSettings({ temperature: t })}
           maxToolSteps={maxToolSteps}
-          onMaxToolStepsChange={(s) =>
-            updateChatSettings({ maxToolSteps: s })
-          }
+          onMaxToolStepsChange={(s) => updateChatSettings({ maxToolSteps: s })}
         />
       )}
 
@@ -876,7 +876,7 @@ export function ChatPanel() {
         <SheetContent
           side="right"
           showCloseButton={false}
-          className="w-[85vw] bg-card p-0"
+          className="w-screen! max-w-[100vw] bg-card p-0"
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Trò chuyện AI</SheetTitle>
