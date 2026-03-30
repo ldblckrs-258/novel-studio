@@ -59,8 +59,6 @@ export interface ConvertOptions {
   nameDetectMinFrequency?: number;
   /** Auto-detected names to exclude (not persisted in settings) */
   rejectedAutoNames?: string[];
-  /** Enable grammar post-processing rules (default: true) */
-  grammarRulesEnabled?: boolean;
   /** Enable POS tagging via jieba-wasm (default: true) */
   posTaggingEnabled?: boolean;
 }
@@ -76,7 +74,6 @@ export const DEFAULT_CONVERT_OPTIONS: Required<ConvertOptions> = {
   autoDetectNames: true,
   nameDetectMinFrequency: 3,
   rejectedAutoNames: [],
-  grammarRulesEnabled: true,
   posTaggingEnabled: true,
 };
 

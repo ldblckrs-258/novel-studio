@@ -183,17 +183,6 @@ export function ConvertConfig() {
       )}
 
       <div className="flex items-center justify-between gap-2">
-        <Label htmlFor="grammar-rules" className="text-xs font-medium">
-          Quy tắc ngữ pháp
-        </Label>
-        <Switch
-          id="grammar-rules"
-          checked={settings.grammarRulesEnabled}
-          onCheckedChange={(v) => update({ grammarRulesEnabled: v })}
-        />
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
         <Label htmlFor="pos-tagging" className="text-xs font-medium">
           POS tagging (jieba)
         </Label>

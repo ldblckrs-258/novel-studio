@@ -3,6 +3,7 @@ import type {
   ConvertSegment,
   ConvertSource,
   DictPair,
+  LuatNhanMode,
   QTWorkerRequest,
   QTWorkerResponse,
 } from "./qt-engine.types";
@@ -35,8 +36,7 @@ import {
   initPOSTagger,
   isPOSReady,
 } from "./pos-tagger";
-import { buildRuleIndex, applyGrammarRules } from "./grammar-engine";
-import { ALL_GRAMMAR_RULES } from "./grammar-rules";
+import { applyGrammarRules } from "./grammar-rules";
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -104,7 +104,6 @@ let luatNhanPatterns: Array<{
 let luatNhanPrefixIndex: Map<string, number[]>;
 let maxKeyLength = 0;
 let maxNameLength = 0;
-const grammarRuleIndex = buildRuleIndex(ALL_GRAMMAR_RULES);
 
 // ─── Init ────────────────────────────────────────────────────
 
@@ -261,6 +260,185 @@ function detectNames(
 
 // ─── Convert ─────────────────────────────────────────────────
 
+// ─── 2-Pass pipeline helpers ────────────────────────────────
+
+interface MatchedRegion {
+  start: number;
+  end: number;
+  segment: ConvertSegment;
+}
+
+/**
+ * Pre-scan: find LuatNhan pattern matches on raw text.
+ * Returns non-overlapping matched regions sorted by position.
+ */
+function scanLuatNhan(
+  text: string,
+  allNames: Map<string, string>,
+  filteredVP: Map<string, string>,
+  effectiveMaxName: number,
+  mode: LuatNhanMode,
+): MatchedRegion[] {
+  if (mode === "off") return [];
+  const regions: MatchedRegion[] = [];
+  let i = 0;
+
+  while (i < text.length) {
+    let matched = false;
+    const ch = text[i];
+    const patternIndices = luatNhanPrefixIndex.get(ch);
+
+    if (patternIndices) {
+      for (const pi of patternIndices) {
+        const pattern = luatNhanPatterns[pi];
+        if (!text.startsWith(pattern.prefix, i)) continue;
+
+        const searchStart = i + pattern.prefix.length;
+        for (
+          let nameLen = Math.min(effectiveMaxName, text.length - searchStart);
+          nameLen >= 1;
+          nameLen--
+        ) {
+          const candidate = text.slice(searchStart, searchStart + nameLen);
+          const isMatch =
+            allNames.has(candidate) ||
+            (mode === "name-and-pronouns" && filteredVP.has(candidate));
+          if (!isMatch) continue;
+
+          const suffixStart = searchStart + nameLen;
+          if (!text.startsWith(pattern.suffix, suffixStart)) continue;
+
+          const translatedName =
+            allNames.get(candidate) ?? filteredVP.get(candidate) ?? candidate;
+          const translation = pattern.template.replace("{0}", translatedName);
+          const matchEnd = suffixStart + pattern.suffix.length;
+
+          regions.push({
+            start: i,
+            end: matchEnd,
+            segment: {
+              original: text.slice(i, matchEnd),
+              translated: translation,
+              source: "luatnhan",
+            },
+          });
+          i = matchEnd;
+          matched = true;
+          break;
+        }
+        if (matched) break;
+      }
+    }
+
+    if (!matched) i++;
+  }
+
+  return regions;
+}
+
+/**
+ * Pass 1: Create one micro-segment per character.
+ * CJK chars get phienAm translation; others pass through as "unknown".
+ */
+function createMicroSegments(text: string): ConvertSegment[] {
+  const segments: ConvertSegment[] = [];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (isCJK(ch)) {
+      segments.push({
+        original: ch,
+        translated: phienAmMap.get(ch) ?? ch,
+        source: "phienam",
+      });
+    } else {
+      segments.push({ original: ch, translated: ch, source: "unknown" });
+    }
+  }
+  return segments;
+}
+
+/**
+ * Pass 2: Walk micro-segments, merge consecutive CJK segments when
+ * a compound phrase is found in the priority maps (trie longest-match).
+ */
+function trieMerge(
+  microSegments: ConvertSegment[],
+  indexedPriorityMaps: Array<[ConvertSource, IndexedDict]>,
+  maxPhraseLength: number,
+): ConvertSegment[] {
+  const result: ConvertSegment[] = [];
+  let i = 0;
+
+  while (i < microSegments.length) {
+    const seg = microSegments[i];
+
+    // Non-CJK passes through directly
+    if (seg.source === "unknown") {
+      result.push(seg);
+      i++;
+      continue;
+    }
+
+    // Build lookahead string from consecutive CJK micro-segments
+    let combined = "";
+    let j = i;
+    const maxLook = Math.min(i + maxPhraseLength, microSegments.length);
+    while (j < maxLook && microSegments[j].source !== "unknown") {
+      combined += microSegments[j].original;
+      j++;
+    }
+    // j is now the exclusive end of the CJK run
+
+    // Try longest-match in priority maps (length >= 2 for compounds)
+    let matched = false;
+    for (const [source, indexed] of indexedPriorityMaps) {
+      const bucket = indexed.get(seg.original);
+      if (!bucket) continue;
+      const maxLen = Math.min(bucket.maxleng, combined.length);
+
+      for (let len = maxLen; len >= 2; len--) {
+        const phrase = combined.substring(0, len);
+        if (bucket.entries.has(phrase)) {
+          result.push({
+            original: phrase,
+            translated: bucket.entries.get(phrase)!,
+            source,
+          });
+          i += len;
+          matched = true;
+          break;
+        }
+      }
+      if (matched) break;
+    }
+    if (matched) continue;
+
+    // No compound — try single-char lookup in priority maps
+    let singleMatched = false;
+    for (const [source, indexed] of indexedPriorityMaps) {
+      const bucket = indexed.get(seg.original);
+      if (bucket?.entries.has(seg.original)) {
+        result.push({
+          original: seg.original,
+          translated: bucket.entries.get(seg.original)!,
+          source,
+        });
+        singleMatched = true;
+        break;
+      }
+    }
+
+    if (!singleMatched) {
+      result.push(seg); // keep phienAm
+    }
+    i++;
+  }
+
+  return result;
+}
+
+// ─── Convert ─────────────────────────────────────────────────
+
 interface ConvertResult {
   segments: ConvertSegment[];
   detectedNames?: DictPair[];
@@ -381,104 +559,50 @@ function convert(
     for (const k of autoDetected.keys())
       if (k.length > effectiveMaxName) effectiveMaxName = k.length;
 
+  // ── 2-Pass pipeline ──────────────────────────────────────────
+  //
+  // Step 1: LuatNhan pre-scan on raw text → matched regions
+  // Step 2: For gaps between LuatNhan regions:
+  //         Pass 1 — phienAm micro-segmentation (1 char = 1 segment)
+  //         Pass 2 — trie merge (longest-match compounds from priority maps)
+  // Result: every segment = exactly 1 dict entry OR 1 phienAm char
+
+  const luatNhanRegions = scanLuatNhan(
+    text,
+    allNames,
+    filteredVP,
+    effectiveMaxName,
+    o.luatNhanMode,
+  );
+
   const segments: ConvertSegment[] = [];
-  let i = 0;
+  let pos = 0;
 
-  while (i < text.length) {
-    let matched = false;
-
-    // 1. LuatNhan patterns
-    const char = text[i];
-    const patternIndices =
-      o.luatNhanMode !== "off" ? luatNhanPrefixIndex.get(char) : undefined;
-    if (patternIndices) {
-      for (const pi of patternIndices) {
-        const pattern = luatNhanPatterns[pi];
-        if (!text.startsWith(pattern.prefix, i)) continue;
-
-        const searchStart = i + pattern.prefix.length;
-        for (
-          let nameLen = Math.min(effectiveMaxName, text.length - searchStart);
-          nameLen >= 1;
-          nameLen--
-        ) {
-          const candidate = text.slice(searchStart, searchStart + nameLen);
-          const luatNhanMatch =
-            allNames.has(candidate) ||
-            (o.luatNhanMode === "name-and-pronouns" &&
-              filteredVP.has(candidate));
-          if (!luatNhanMatch) continue;
-
-          const suffixStart = searchStart + nameLen;
-          if (!text.startsWith(pattern.suffix, suffixStart)) continue;
-
-          const translatedName =
-            allNames.get(candidate) ?? filteredVP.get(candidate) ?? candidate;
-          const translation = pattern.template.replace("{0}", translatedName);
-          const matchEnd = suffixStart + pattern.suffix.length;
-          segments.push({
-            original: text.slice(i, matchEnd),
-            translated: translation,
-            source: "luatnhan",
-          });
-          i = matchEnd;
-          matched = true;
-          break;
-        }
-        if (matched) break;
-      }
+  for (const region of luatNhanRegions) {
+    // Gap before this LuatNhan match → Pass 1 + Pass 2
+    if (pos < region.start) {
+      const gapText = text.slice(pos, region.start);
+      const micro = createMicroSegments(gapText);
+      const merged = trieMerge(micro, indexedPriorityMaps, o.maxPhraseLength);
+      segments.push(...merged);
     }
+    segments.push(region.segment);
+    pos = region.end;
+  }
 
-    // 2. Priority Maps — first-char indexed longest match
-    if (!matched) {
-      for (const [source, indexed] of indexedPriorityMaps) {
-        const bucket = indexed.get(text[i]);
-        if (!bucket) continue;
-        const maxLen = Math.min(
-          bucket.maxleng,
-          text.length - i,
-          o.maxPhraseLength,
-        );
-        for (let j = maxLen; j >= 1; j--) {
-          const sub = text.slice(i, i + j);
-          if (bucket.entries.has(sub)) {
-            segments.push({
-              original: sub,
-              translated: bucket.entries.get(sub)!,
-              source,
-            });
-            i += j;
-            matched = true;
-            break;
-          }
-        }
-        if (matched) break;
-      }
-    }
-
-    // 3. PhienAm fallback
-    if (!matched) {
-      const c = text[i];
-      if (phienAmMap.has(c)) {
-        segments.push({
-          original: c,
-          translated: phienAmMap.get(c)!,
-          source: "phienam",
-        });
-      } else {
-        segments.push({ original: c, translated: c, source: "unknown" });
-      }
-      i += 1;
-    }
+  // Remaining text after last LuatNhan match
+  if (pos < text.length) {
+    const gapText = text.slice(pos, text.length);
+    const micro = createMicroSegments(gapText);
+    const merged = trieMerge(micro, indexedPriorityMaps, o.maxPhraseLength);
+    segments.push(...merged);
   }
 
   // Post-processing pipeline
   markDialogue(segments);
   if (o.posTaggingEnabled && isPOSReady()) {
     enrichSegmentsWithPOS(segments, text);
-  }
-  if (o.grammarRulesEnabled) {
-    applyGrammarRules(segments, grammarRuleIndex);
+    applyGrammarRules(segments);
   }
 
   if (autoDetected?.size) capitalizeDetectedNames(segments, autoDetected);
