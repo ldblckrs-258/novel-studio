@@ -135,4 +135,4 @@ export class BrowserTTS implements TTSProvider {
   }
 }
 
-registerProvider(BrowserTTS, "Browser TTS");
+registerProvider("BrowserTTS", BrowserTTS, "Browser TTS");

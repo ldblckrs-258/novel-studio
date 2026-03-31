@@ -4,25 +4,22 @@ import type { TTSProvider, TTSProviderClass } from "./types";
 const providers = new Map<string, TTSProviderClass>();
 
 /**
- * Register a TTS provider class so it can be instantiated later by name.
+ * Register a TTS provider class so it can be instantiated later by id.
  *
  * ```ts
- * registerProvider(BingTTS, "Bing TTS");
+ * registerProvider("BingTTS", BingTTS, "Bing TTS");
  * ```
  */
 export function registerProvider(
+  id: string,
   providerClass: TTSProviderClass,
   friendlyName: string,
 ): void {
-  const name = providerClass.name;
-  if (!name) {
-    throw new Error("Provider class must have a name (use a named class)");
-  }
-  if (providers.has(name)) {
-    console.warn(`Provider ${name} is already registered. Overwriting.`);
+  if (providers.has(id)) {
+    console.warn(`Provider ${id} is already registered. Overwriting.`);
   }
   providerClass.friendlyName = friendlyName;
-  providers.set(name, providerClass);
+  providers.set(id, providerClass);
 }
 
 /**

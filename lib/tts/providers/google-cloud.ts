@@ -296,4 +296,4 @@ export class GoogleCloudTTS implements TTSProvider {
   }
 }
 
-registerProvider(GoogleCloudTTS, "Google Cloud TTS");
+registerProvider("GoogleCloudTTS", GoogleCloudTTS, "Google Cloud TTS");

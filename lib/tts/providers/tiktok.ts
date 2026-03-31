@@ -116,4 +116,4 @@ export class TikTokTTS implements TTSProvider {
   }
 }
 
-registerProvider(TikTokTTS, "TikTok TTS");
+registerProvider("TikTokTTS", TikTokTTS, "TikTok TTS");

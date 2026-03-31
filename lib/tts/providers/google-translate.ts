@@ -251,4 +251,4 @@ export class GoogleTranslateTTS implements TTSProvider {
   }
 }
 
-registerProvider(GoogleTranslateTTS, "Google Translate TTS");
+registerProvider("GoogleTranslateTTS", GoogleTranslateTTS, "Google Translate TTS");

@@ -683,4 +683,4 @@ export class BingTTS implements TTSProvider {
   }
 }
 
-registerProvider(BingTTS, "Bing TTS");
+registerProvider("BingTTS", BingTTS, "Bing TTS");

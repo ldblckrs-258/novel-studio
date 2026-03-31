@@ -231,4 +231,4 @@ export class GeminiTTS implements TTSProvider {
   }
 }
 
-registerProvider(GeminiTTS, "Gemini TTS (cần API key)");
+registerProvider("GeminiTTS", GeminiTTS, "Gemini TTS (cần API key)");
