@@ -23,6 +23,8 @@
     "@huggingface/transformers": "^3.8.1",
     "@tanstack/react-virtual": "^3.13.23",
     "@types/dompurify": "^3.2.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.37.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "ai": "^6.0.137",

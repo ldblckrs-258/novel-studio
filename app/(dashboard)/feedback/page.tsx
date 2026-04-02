@@ -13,16 +13,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  MAX_FEEDBACK_IMAGES,
+  MAX_TOTAL_IMAGE_BYTES,
+  isAllowedFeedbackImage,
+} from "@/lib/feedback-attachments";
 import { cn } from "@/lib/utils";
 import {
   AlertCircleIcon,
   BugIcon,
   CheckCircle2Icon,
+  ImagePlusIcon,
   LightbulbIcon,
   Loader2Icon,
   MessageSquareIcon,
+  XIcon,
 } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+
+const ACCEPT_IMAGES =
+  "image/jpeg,image/jpg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp";
+
+type ImageItem = { file: File; preview: string };
 
 type FeedbackType = "bug" | "suggestion" | "other";
 
@@ -120,8 +132,27 @@ export default function FeedbackPage() {
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [imageItems, setImageItems] = useState<ImageItem[]>([]);
+  const [imageHint, setImageHint] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageItemsRef = useRef<ImageItem[]>([]);
 
   const descTooShort = description.length > 0 && description.length < DESC_MIN;
+
+  const imagesTotalBytes = useMemo(
+    () => imageItems.reduce((s, i) => s + i.file.size, 0),
+    [imageItems],
+  );
+
+  useEffect(() => {
+    imageItemsRef.current = imageItems;
+  }, [imageItems]);
+
+  useEffect(() => {
+    return () => {
+      imageItemsRef.current.forEach((i) => URL.revokeObjectURL(i.preview));
+    };
+  }, []);
 
   const reset = () => {
     setType("bug");
@@ -130,6 +161,52 @@ export default function FeedbackPage() {
     setContact("");
     setStatus("idle");
     setErrorMessage(null);
+    setImageHint(null);
+    setImageItems((prev) => {
+      prev.forEach((i) => URL.revokeObjectURL(i.preview));
+      return [];
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setImageItems((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(index, 1);
+      if (removed) URL.revokeObjectURL(removed.preview);
+      return next;
+    });
+    setImageHint(null);
+  };
+
+  const onPickImages = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const picked = input.files ? Array.from(input.files) : [];
+    input.value = "";
+    if (picked.length === 0) return;
+
+    setImageHint(null);
+    const rejected: string[] = [];
+    const next: ImageItem[] = [...imageItems];
+    let sum = next.reduce((s, i) => s + i.file.size, 0);
+
+    for (const f of picked) {
+      if (next.length >= MAX_FEEDBACK_IMAGES) break;
+      if (!isAllowedFeedbackImage(f)) {
+        rejected.push("Chỉ JPEG, PNG, GIF, WebP.");
+        continue;
+      }
+      if (sum + f.size > MAX_TOTAL_IMAGE_BYTES) {
+        rejected.push("Tổng dung lượng ảnh không được vượt 4 MB.");
+        continue;
+      }
+      sum += f.size;
+      next.push({ file: f, preview: URL.createObjectURL(f) });
+    }
+
+    setImageItems(next);
+    if (rejected.length) {
+      setImageHint(rejected[0] ?? null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -138,15 +215,19 @@ export default function FeedbackPage() {
     setErrorMessage(null);
 
     try {
+      const fd = new FormData();
+      fd.append("type", type);
+      fd.append("title", title.trim());
+      fd.append("description", description);
+      const c = contact.trim();
+      if (c) fd.append("contact", c);
+      for (const { file } of imageItems) {
+        fd.append("images", file);
+      }
+
       const res = await fetch("/api/feedback", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type,
-          title: title.trim(),
-          description,
-          contact: contact.trim() || undefined,
-        }),
+        body: fd,
       });
 
       const data = (await res.json()) as { error?: string; success?: boolean };
@@ -361,6 +442,82 @@ export default function FeedbackPage() {
                   ? `Cần ít nhất ${DESC_MIN} ký tự (còn thiếu ${DESC_MIN - description.length}).`
                   : `Tối thiểu ${DESC_MIN} ký tự.`}
               </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <span
+                  id={`${formId}-images-label`}
+                  className="text-sm font-medium leading-snug"
+                >
+                  Ảnh đính kèm (tuỳ chọn)
+                </span>
+                <span
+                  className="text-xs tabular-nums text-muted-foreground"
+                  aria-live="polite"
+                >
+                  {imageItems.length}/{MAX_FEEDBACK_IMAGES} ·{" "}
+                  {(imagesTotalBytes / (1024 * 1024)).toFixed(1)} / 4 MB
+                </span>
+              </div>
+              <input
+                ref={fileInputRef}
+                id={`${formId}-images`}
+                type="file"
+                accept={ACCEPT_IMAGES}
+                multiple
+                aria-labelledby={`${formId}-images-label`}
+                tabIndex={-1}
+                className="fixed top-0 left-0 h-px w-px overflow-hidden opacity-0"
+                onChange={onPickImages}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="cursor-pointer gap-2"
+                disabled={
+                  imageItems.length >= MAX_FEEDBACK_IMAGES ||
+                  imagesTotalBytes >= MAX_TOTAL_IMAGE_BYTES ||
+                  status === "loading"
+                }
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <ImagePlusIcon className="size-4" aria-hidden />
+                Thêm ảnh
+              </Button>
+              {imageHint && (
+                <p className="text-xs text-destructive" role="status">
+                  {imageHint}
+                </p>
+              )}
+              {imageItems.length > 0 && (
+                <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {imageItems.map((item, index) => (
+                    <li
+                      key={item.preview}
+                      className="relative aspect-video overflow-hidden rounded-lg border border-border bg-muted/40"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- blob preview */}
+                      <img
+                        src={item.preview}
+                        alt=""
+                        className="size-full object-cover"
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="secondary"
+                        className="absolute top-1.5 right-1.5 size-8 min-h-8 min-w-8 cursor-pointer shadow-sm"
+                        onClick={() => removeImage(index)}
+                        aria-label={`Xóa ảnh ${index + 1}`}
+                      >
+                        <XIcon className="size-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div className="space-y-2">
