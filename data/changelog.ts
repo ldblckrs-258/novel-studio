@@ -65,6 +65,57 @@ export const CATEGORY_META: Record<
 
 export const changelog: ChangelogRelease[] = [
   {
+    version: "0.10.1",
+    date: "2026-04-03",
+    title: "Nâng cấp đọc truyện & Sửa lỗi chat",
+    summary:
+      "Panel đọc truyện hoạt động liên tục khi chuyển trang, hỗ trợ media control hệ điều hành, và đọc văn bản trực tiếp từ trang convert. Giao diện chọn chương mới với tìm kiếm và cuộn ảo. Sửa nhiều lỗi chat AI.",
+    changes: [
+      {
+        category: "improvement",
+        description: "Panel đọc tiếp tục khi rời trang đọc",
+        details:
+          "Trước đây, chuyển sang trang khác sẽ dừng phát. Nay panel TTS vẫn hoạt động bình thường — prev/next trong panel không còn điều hướng URL khi không ở trang đọc.",
+        tags: ["đọc truyện", "TTS"],
+      },
+      {
+        category: "feature",
+        description: "Hỗ trợ Native Media Controls",
+        details:
+          "Điều khiển phát/dừng, chương trước/sau trực tiếp từ thanh thông báo, màn hình khóa hoặc tai nghe mà không cần mở ứng dụng. Hiển thị tên tiểu thuyết và chương đang đọc.",
+        tags: ["đọc truyện", "TTS", "media"],
+      },
+      {
+        category: "feature",
+        description: "Đọc kết quả convert bằng TTS",
+        details:
+          "Nút Đọc trên trang Convert nhanh gửi văn bản đã dịch sang panel TTS để nghe ngay. Panel hiển thị nhãn ngữ cảnh thay cho tiêu đề chương khi không đọc tiểu thuyết.",
+        tags: ["đọc truyện", "convert", "TTS"],
+      },
+      {
+        category: "feature",
+        description: "Dialog chọn chương với tìm kiếm và cuộn ảo",
+        details:
+          "Thay dropdown cũ bằng dialog đầy đủ: tìm kiếm theo tên/số chương, danh sách ảo hóa hiệu năng cao cho truyện nhiều chương, tự cuộn đến chương hiện tại khi mở.",
+        tags: ["đọc truyện", "giao diện"],
+      },
+      {
+        category: "fix",
+        description: "Chat AI: xử lý khi đạt giới hạn bước công cụ",
+        details:
+          "Khi AI dùng hết số bước tool call cho phép, hệ thống tự gửi thêm yêu cầu để AI tổng kết kết quả thay vì dừng đột ngột không có phản hồi.",
+        tags: ["chat", "AI"],
+      },
+      {
+        category: "fix",
+        description: "Sửa lỗi thanh tiến trình phân tích",
+        details:
+          "Thanh tiến trình phân tích AI hiển thị đúng trạng thái và không còn bị treo.",
+        tags: ["phân tích", "sửa lỗi"],
+      },
+    ],
+  },
+  {
     version: "0.10.0",
     date: "2026-04-02",
     title: "Viết truyện tự động với AI",
