@@ -5,7 +5,7 @@ import { Player } from "@/lib/tts/player";
 import { getProvider } from "@/lib/tts/providers/registry";
 import { updateTTSSettings } from "@/lib/hooks/use-tts-settings";
 // Side-effect: ensure all providers are registered
-import "@/lib/tts";
+import { tokenizeSentences } from "@/lib/tts";
 
 export const PANEL_MIN_WIDTH = 280;
 export const PANEL_MAX_WIDTH = 700;
@@ -112,6 +112,9 @@ interface ReaderPanelState {
   chapterIndex: number;
   totalChapters: number;
 
+  // Freeform mode — plain text loaded outside of any novel (e.g. from convert page)
+  freeformTitle: string;
+
   // --- Panel actions ---
   toggle: () => void;
   setOpen: (open: boolean) => void;
@@ -149,6 +152,12 @@ interface ReaderPanelState {
   navigateTo: (index: number, opts?: { autoPlay?: boolean }) => void;
   nextChapter: () => void;
   prevChapter: () => void;
+
+  /**
+   * Load arbitrary text into the reader (freeform mode).
+   * Clears novel context, tokenises the text, and opens the panel.
+   */
+  loadText: (text: string, title?: string) => void;
 }
 
 const DEFAULT_TTS: TTSSettings = {
@@ -177,6 +186,7 @@ export const useReaderPanel = create<ReaderPanelState>((set, get) => ({
   chapterTitle: "",
   chapterIndex: 0,
   totalChapters: 0,
+  freeformTitle: "",
 
   // --- Panel ---
 
@@ -309,6 +319,7 @@ export const useReaderPanel = create<ReaderPanelState>((set, get) => ({
       novelId,
       novelTitle,
       totalChapters,
+      freeformTitle: "",
       // Only reset chapter index when switching to a different novel
       ...(isNewNovel && chapterIndex !== undefined ? { chapterIndex } : {}),
     });
@@ -347,5 +358,25 @@ export const useReaderPanel = create<ReaderPanelState>((set, get) => ({
     if (chapterIndex > 0) {
       get().navigateTo(chapterIndex - 1);
     }
+  },
+
+  loadText: (text, title = "") => {
+    const sentences = tokenizeSentences(text);
+    player?.stop();
+    set({
+      novelId: null,
+      novelTitle: "",
+      chapterTitle: "",
+      totalChapters: 0,
+      chapterIndex: 0,
+      freeformTitle: title,
+      sentences,
+      currentSentenceIndex: 0,
+      isPlaying: false,
+      isPaused: false,
+      isLoading: false,
+      autoPlayOnLoad: false,
+      isOpen: true,
+    });
   },
 }));

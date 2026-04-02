@@ -148,13 +148,11 @@ export function ChatSettingsDialog({
               </FieldLabel>
               <Input
                 type="range"
-                min={1}
-                max={10}
+                min={5}
+                max={20}
                 step={1}
                 value={maxToolSteps}
-                onChange={(e) =>
-                  onMaxToolStepsChange(parseInt(e.target.value))
-                }
+                onChange={(e) => onMaxToolStepsChange(parseInt(e.target.value))}
                 className="h-2 cursor-pointer accent-primary"
               />
               <FieldDescription>

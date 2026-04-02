@@ -112,12 +112,16 @@ export default function ChapterEditorPage() {
   useEffect(() => {
     return () => {
       useChapterTools.getState().cancelStreaming();
+      useChapterTools.getState().setActiveMode(null);
     };
   }, []);
 
   // Sync editedResult when AI/replace completes
   useEffect(() => {
-    if (completedResult && (activeMode === "edit" || activeMode === "replace")) {
+    if (
+      completedResult &&
+      (activeMode === "edit" || activeMode === "replace")
+    ) {
       setEditedResult(completedResult);
     }
   }, [completedResult, activeMode]);
@@ -319,9 +323,7 @@ export default function ChapterEditorPage() {
               </Link>
             </Button>
             <Button variant="ghost" size="icon-sm" asChild title="Chế độ đọc">
-              <Link
-                href={`/novels/${novelId}/read?chapter=${chapter.order}`}
-              >
+              <Link href={`/novels/${novelId}/read/${chapter.order + 1}`}>
                 <BookOpenIcon className="size-4" />
               </Link>
             </Button>
@@ -423,11 +425,7 @@ export default function ChapterEditorPage() {
             />
             <div className="flex shrink-0 items-center justify-between border-t px-4 py-2">
               {activeMode === "edit" ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => clearResult()}
-                >
+                <Button variant="ghost" size="sm" onClick={() => clearResult()}>
                   <RotateCcwIcon className="mr-1.5 size-3" />
                   Tạo lại
                 </Button>

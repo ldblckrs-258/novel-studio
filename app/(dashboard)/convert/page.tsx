@@ -16,6 +16,7 @@ import { useDebouncedValue } from "@/lib/hooks/use-debounce";
 import { useExcludedNamesList } from "@/lib/hooks/use-excluded-names";
 import { convertText, useQTEngineReady } from "@/lib/hooks/use-qt-engine";
 import type { ConvertOptions, DictPair } from "@/lib/workers/qt-engine.types";
+import { useReaderPanel } from "@/lib/stores/reader-panel";
 import {
   ArrowRightLeftIcon,
   CheckIcon,
@@ -23,6 +24,7 @@ import {
   LoaderIcon,
   SettingsIcon,
   Trash2Icon,
+  Volume2Icon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -92,6 +94,11 @@ export default function ConvertPage() {
       });
   }, [liveMode, debouncedInput, mergedOptions, engineReady]);
 
+  const handleRead = useCallback(() => {
+    if (!output.trim()) return;
+    useReaderPanel.getState().loadText(output, "Kết quả convert");
+  }, [output]);
+
   const handleCopy = useCallback(async () => {
     if (!output) return;
     await navigator.clipboard.writeText(output);
@@ -130,14 +137,20 @@ export default function ConvertPage() {
             </Button>
           )}
           {output && (
-            <Button variant="ghost" size="sm" onClick={handleCopy}>
-              {copied ? (
-                <CheckIcon className="mr-1.5 size-3.5" />
-              ) : (
-                <ClipboardCopyIcon className="mr-1.5 size-3.5" />
-              )}
-              {copied ? "Đã chép" : "Sao chép"}
-            </Button>
+            <>
+              <Button variant="ghost" size="sm" onClick={handleRead}>
+                <Volume2Icon className="mr-1.5 size-3.5" />
+                Đọc
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleCopy}>
+                {copied ? (
+                  <CheckIcon className="mr-1.5 size-3.5" />
+                ) : (
+                  <ClipboardCopyIcon className="mr-1.5 size-3.5" />
+                )}
+                {copied ? "Đã chép" : "Sao chép"}
+              </Button>
+            </>
           )}
 
           {(input || output) && <div className="h-5 w-px bg-border" />}

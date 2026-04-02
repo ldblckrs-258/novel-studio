@@ -95,7 +95,7 @@ export function ReaderSentenceList() {
               >
                 <Badge
                   variant={isActive ? "default" : "secondary"}
-                  className="mt-0.5 shrink-0 tabular-nums"
+                  className="mt-0.5 shrink-0 tabular-nums text-[10px] px-0.75"
                 >
                   {i + 1}
                 </Badge>

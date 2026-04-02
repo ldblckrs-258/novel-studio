@@ -68,6 +68,10 @@ export function ChatPanel() {
     activeConversationId,
     setActiveConversation,
     setAttachedContext,
+    attachedNovelId,
+    attachedChapterId,
+    pageNovelId,
+    pageChapterId,
   } = useChatPanel();
   const chapterToolActive = useChapterTools((s) => s.activeMode !== null);
   const readerToolsOpen = useReaderPanel((s) => s.isOpen);
@@ -84,7 +88,7 @@ export function ChatPanel() {
       chatSettings.globalSystemInstruction,
     ) ?? "";
   const temperature = chatSettings.temperature;
-  const maxToolSteps = chatSettings.maxToolSteps ?? 5;
+  const maxToolSteps = chatSettings.maxToolSteps ?? 10;
   const selectedProvider = providers?.find((p) => p.id === selectedProviderId);
   const models = useAIModels(selectedProviderId || undefined);
 
@@ -118,25 +122,25 @@ export function ChatPanel() {
     }
   }, [models, selectedModelId]);
 
-  // Sync provider/model and attached context when user switches conversation
-  const prevConvoIdRef = useRef<string | null>(null);
+  // Sync provider/model and attached context when user switches conversation.
+  // Uses syncedConvoIdRef to track successful syncs — allows retrying if
+  // conversations (LiveQuery) hasn't populated yet when activeConversationId changes.
+  const syncedConvoIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (
-      activeConversationId &&
-      activeConversationId !== prevConvoIdRef.current
-    ) {
-      const convo = conversations?.find((c) => c.id === activeConversationId);
-      if (convo) {
-        updateChatSettings({
-          providerId: convo.providerId,
-          modelId: convo.modelId,
-        });
-        setAttachedContext(convo.novelId ?? null, convo.chapterId ?? null);
-      }
-    } else if (!activeConversationId) {
+    if (!activeConversationId) {
       setAttachedContext(null, null);
+      syncedConvoIdRef.current = null;
+      return;
     }
-    prevConvoIdRef.current = activeConversationId;
+    if (syncedConvoIdRef.current === activeConversationId) return;
+    const convo = conversations?.find((c) => c.id === activeConversationId);
+    if (!convo) return; // Not yet in LiveQuery — will retry when conversations updates
+    updateChatSettings({
+      providerId: convo.providerId,
+      modelId: convo.modelId,
+    });
+    setAttachedContext(convo.novelId ?? null, convo.chapterId ?? null);
+    syncedConvoIdRef.current = activeConversationId;
   }, [activeConversationId, conversations, setAttachedContext]);
 
   // Focus input when panel opens
@@ -159,6 +163,29 @@ export function ChatPanel() {
     }
     prevIsOpenRef.current = isOpen;
   }, [isOpen, activeConversationId, conversations, setActiveConversation]);
+
+  // When user navigates to a chapter of the attached novel, sync attachedChapterId.
+  useEffect(() => {
+    if (
+      attachedNovelId &&
+      pageNovelId === attachedNovelId &&
+      pageChapterId !== attachedChapterId
+    ) {
+      setAttachedContext(attachedNovelId, pageChapterId);
+      if (activeConversationId) {
+        updateConversation(activeConversationId, {
+          chapterId: pageChapterId ?? undefined,
+        });
+      }
+    }
+  }, [
+    pageNovelId,
+    pageChapterId,
+    attachedNovelId,
+    attachedChapterId,
+    activeConversationId,
+    setAttachedContext,
+  ]);
 
   // Keyboard shortcut: Cmd+. to toggle
   useEffect(() => {
@@ -395,6 +422,73 @@ export function ChatPanel() {
           throw streamError;
         }
 
+        // If AI was stopped at tool call limit (still wanted more tool calls),
+        // make one follow-up call without tools so it can summarize its findings.
+        if (finishReason === "tool-calls" && !controller.signal.aborted) {
+          try {
+            const { messages: responseMessages } = await result.response;
+            const followUpHistory = [
+              ...history,
+              ...responseMessages,
+              {
+                role: "user" as const,
+                content:
+                  "[System: You have reached the maximum number of tool calls allowed. Based on all the information you have gathered so far, please provide your complete final answer now.]",
+              },
+            ];
+
+            const followUpStream = streamText({
+              model: await getModel(selectedProvider, selectedModelId),
+              messages: followUpHistory,
+              temperature,
+              abortSignal: controller.signal,
+            });
+
+            for await (const part of followUpStream.fullStream) {
+              if (part.type === "reasoning-delta") {
+                apiReasoning += part.text;
+              } else if (part.type === "text-delta") {
+                rawContent += part.text;
+              } else if (part.type === "finish-step") {
+                finishReason = part.finishReason;
+                const stepParsed = parseThinkingTags(rawContent);
+                lastParsedContent = stepParsed.content;
+                const stepReasoning = apiReasoning
+                  ? apiReasoning +
+                    (stepParsed.reasoning ? "\n\n" + stepParsed.reasoning : "")
+                  : stepParsed.reasoning;
+                if (stepReasoning) setStreamingReasoning(stepReasoning);
+                setStreamingContent(stepParsed.content);
+                latestStreamedContent = stepParsed.content;
+                const stepText = lastParsedContent.slice(lastCommittedParsedLen);
+                if (stepText) {
+                  committedParts.push({ type: "text", content: stepText });
+                }
+                lastCommittedParsedLen = lastParsedContent.length;
+                flushParts();
+                continue;
+              } else if (part.type === "error") {
+                break;
+              } else {
+                continue;
+              }
+
+              const parsed = parseThinkingTags(rawContent);
+              lastParsedContent = parsed.content;
+              const combinedReasoning = apiReasoning
+                ? apiReasoning +
+                  (parsed.reasoning ? "\n\n" + parsed.reasoning : "")
+                : parsed.reasoning;
+              setStreamingReasoning(combinedReasoning);
+              setStreamingContent(parsed.content);
+              latestStreamedContent = parsed.content;
+              flushParts();
+            }
+          } catch {
+            // Follow-up failed silently — keep whatever content was already streamed
+          }
+        }
+
         // Final parse
         const finalParsed = parseThinkingTags(rawContent);
         const finalReasoning = apiReasoning
@@ -570,9 +664,20 @@ export function ChatPanel() {
 
     setInput("");
 
-    // Reuse active conversation
-    const convoId = activeConversationId;
-    if (!convoId) return;
+    // Reuse active conversation, or auto-create one if none exists
+    let convoId = activeConversationId;
+    if (!convoId) {
+      const { pageNovelId, pageChapterId } = useChatPanel.getState();
+      convoId = await createConversation({
+        title: "Cuộc trò chuyện mới",
+        providerId: selectedProviderId,
+        modelId: selectedModelId,
+        novelId: pageNovelId ?? undefined,
+        chapterId: pageNovelId ? (pageChapterId ?? undefined) : undefined,
+      });
+      setActiveConversation(convoId);
+      setAttachedContext(pageNovelId, pageNovelId ? pageChapterId : null);
+    }
 
     const isFirstMessage = !dbMessages || dbMessages.length === 0;
     const result = await sendAndStream(convoId, text);
@@ -592,9 +697,12 @@ export function ChatPanel() {
     isStreaming,
     selectedProvider,
     selectedModelId,
+    selectedProviderId,
     activeConversationId,
     dbMessages,
     sendAndStream,
+    setActiveConversation,
+    setAttachedContext,
   ]);
 
   /** Edit a user message: delete it and everything after, then resend with new text. */
@@ -632,6 +740,9 @@ export function ChatPanel() {
       chapterId: pageNovelId ? (pageChapterId ?? undefined) : undefined,
     });
     setActiveConversation(convoId);
+    // Set attachedContext immediately so the first message has the correct context.
+    // (syncedConvoIdRef effect runs async after render — too late for sendAndStream)
+    setAttachedContext(pageNovelId, pageNovelId ? pageChapterId : null);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -720,11 +831,22 @@ export function ChatPanel() {
           providers={providers ?? []}
           models={models ?? []}
           selectedProviderId={selectedProviderId}
-          onProviderChange={(id) =>
-            updateChatSettings({ providerId: id, modelId: "" })
-          }
+          onProviderChange={(id) => {
+            updateChatSettings({ providerId: id, modelId: "" });
+            if (activeConversationId) {
+              updateConversation(activeConversationId, {
+                providerId: id,
+                modelId: "",
+              });
+            }
+          }}
           selectedModelId={selectedModelId}
-          onModelChange={(id) => updateChatSettings({ modelId: id })}
+          onModelChange={(id) => {
+            updateChatSettings({ modelId: id });
+            if (activeConversationId) {
+              updateConversation(activeConversationId, { modelId: id });
+            }
+          }}
           systemPrompt={chatSettings.systemPrompt ?? ""}
           onSystemPromptChange={(p) => updateChatSettings({ systemPrompt: p })}
           temperature={temperature}
@@ -845,7 +967,13 @@ export function ChatPanel() {
               size="sm"
               className="max-w-[160px] *:text-[11px]!"
               value={selectedModelId}
-              onChange={(e) => updateChatSettings({ modelId: e.target.value })}
+              onChange={(e) => {
+                const id = e.target.value;
+                updateChatSettings({ modelId: id });
+                if (activeConversationId) {
+                  updateConversation(activeConversationId, { modelId: id });
+                }
+              }}
               disabled={!hasModels || isStreaming}
             >
               {!hasModels && (

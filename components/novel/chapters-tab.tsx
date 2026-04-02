@@ -421,7 +421,7 @@ export function ChaptersTab({
                             <div className="ml-auto flex gap-0.5">
                               <Button variant="ghost" size="icon-xs" asChild>
                                 <Link
-                                  href={`/novels/${novelId}/read?chapter=${ch.order}`}
+                                  href={`/novels/${novelId}/read/${ch.order + 1}`}
                                 >
                                   <BookOpenIcon className="size-3.5" />
                                 </Link>
@@ -516,7 +516,7 @@ export function ChaptersTab({
                           <div className="flex w-[4.5rem] shrink-0 justify-end gap-0.5">
                             <Button variant="ghost" size="icon-xs" asChild>
                               <Link
-                                href={`/novels/${novelId}/read?chapter=${ch.order}`}
+                                href={`/novels/${novelId}/read/${ch.order + 1}`}
                               >
                                 <BookOpenIcon className="size-3.5" />
                               </Link>

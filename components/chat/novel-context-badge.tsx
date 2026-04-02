@@ -37,7 +37,9 @@ export function NovelContextBadge() {
     }
   };
 
-  const label = chapter ? `${novel.title} / ${chapter.title}` : novel.title;
+  const label = chapter
+    ? `${novel.title} (Ch .${chapter.order + 1})`
+    : novel.title;
 
   return (
     <div className="flex shrink-0 items-center gap-1.5 border-t bg-muted/30 px-3 py-1.5">

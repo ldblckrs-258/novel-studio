@@ -71,10 +71,12 @@ export function ReaderPanel() {
   const chapterTitle = useReaderPanel((s) => s.chapterTitle);
   const chapterIndex = useReaderPanel((s) => s.chapterIndex);
   const totalChapters = useReaderPanel((s) => s.totalChapters);
+  const freeformTitle = useReaderPanel((s) => s.freeformTitle);
   const dexieSettings = useTTSSettings();
   const isMobile = useIsMobile();
   const router = useRouter();
   const pathname = usePathname();
+  const isReaderPage = /^\/novels\/[^/]+\/read\/\d+/.test(pathname);
 
   // Keep the store in sync with Dexie-backed settings
   useEffect(() => {
@@ -87,21 +89,18 @@ export function ReaderPanel() {
   const handlePrev = useCallback(() => {
     const { novelId, chapterIndex } = useReaderPanel.getState();
     if (!novelId || chapterIndex <= 0) return;
+    const newIndex = chapterIndex - 1;
     useReaderPanel.getState().prevChapter();
-    // If not on the reading page, navigate there with the new chapter in the URL
-    if (!pathname.startsWith(`/novels/${novelId}/read`)) {
-      router.push(`/novels/${novelId}/read?chapter=${chapterIndex - 1}`);
-    }
-  }, [pathname, router]);
+    if (isReaderPage) router.push(`/novels/${novelId}/read/${newIndex + 1}`);
+  }, [router, isReaderPage]);
 
   const handleNext = useCallback(() => {
     const { novelId, chapterIndex, totalChapters } = useReaderPanel.getState();
     if (!novelId || chapterIndex >= totalChapters - 1) return;
+    const newIndex = chapterIndex + 1;
     useReaderPanel.getState().nextChapter();
-    if (!pathname.startsWith(`/novels/${novelId}/read`)) {
-      router.push(`/novels/${novelId}/read?chapter=${chapterIndex + 1}`);
-    }
-  }, [pathname, router]);
+    if (isReaderPage) router.push(`/novels/${novelId}/read/${newIndex + 1}`);
+  }, [router, isReaderPage]);
 
   const panelContent = (
     <>
@@ -115,7 +114,7 @@ export function ReaderPanel() {
         </div>
 
         {/* Chapter context: novel · chapter with prev/next */}
-        {novelId && (
+        {novelId ? (
           <div className="flex items-center gap-1 border-t px-2 py-1.5">
             <Button
               variant="ghost"
@@ -144,7 +143,13 @@ export function ReaderPanel() {
               <ChevronRightIcon className="size-3.5" />
             </Button>
           </div>
-        )}
+        ) : freeformTitle ? (
+          <div className="border-t px-4 py-2">
+            <p className="truncate text-xs font-bold text-center text-muted-foreground">
+              {freeformTitle}
+            </p>
+          </div>
+        ) : null}
       </header>
 
       {/* Settings (top, collapsible) */}
