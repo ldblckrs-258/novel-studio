@@ -1,51 +1,29 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { upload } from "@vercel/blob/client";
 import { toast } from "sonner";
-import {
-  BookTextIcon,
-  DatabaseIcon,
-  DownloadIcon,
-  HardDriveIcon,
-  UploadIcon,
-} from "lucide-react";
+import { DatabaseIcon } from "lucide-react";
 import { useNovels } from "@/lib/hooks";
 import {
+  buildExportPayload,
   exportDatabase,
   previewImportFile,
   importDatabase,
   getStorageStats,
-  TABLE_LABELS,
-  CURRENT_DB_VERSION,
   type StorageStats,
   type ProgressInfo,
   type ConflictMode,
-  type ImportPreview,
+  type ImportPreview
 } from "@/lib/db-io";
 import { ProgressDialog } from "@/components/progress-dialog";
 import { DictionaryManagement } from "@/components/dictionary-management";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { DataSettingsTabs } from "@/components/data-settings/data-settings-tabs";
+import { StorageStatsCard } from "@/components/data-settings/storage-stats-card";
+import { ExportSettingsCard } from "@/components/data-settings/export-settings-card";
+import { ImportSettingsCard } from "@/components/data-settings/import-settings-card";
+import { SyncSettingsCard } from "@/components/data-settings/sync-settings-card";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -55,12 +33,20 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
+function generateSyncCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(4));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .toUpperCase();
+}
+
 export function DataSettings() {
   const novels = useNovels();
 
   // Storage stats
   const [stats, setStats] = useState<StorageStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("stats");
 
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
@@ -82,6 +68,25 @@ export function DataSettings() {
   const [includeAI, setIncludeAI] = useState(true);
   const [includeConversations, setIncludeConversations] = useState(true);
   const [exportPassword, setExportPassword] = useState("");
+
+  // Cloud sync state
+  const [syncPassword, setSyncPassword] = useState("");
+  const [syncUploading, setSyncUploading] = useState(false);
+  const [syncCode, setSyncCode] = useState("");
+  const [syncExpiresAt, setSyncExpiresAt] = useState<string | null>(null);
+  const [syncDownloadCode, setSyncDownloadCode] = useState("");
+  const [syncDownloading, setSyncDownloading] = useState(false);
+  const [syncFile, setSyncFile] = useState<File | null>(null);
+  const [syncPreview, setSyncPreview] = useState<ImportPreview | null>(null);
+  const [syncNeedsPassword, setSyncNeedsPassword] = useState(false);
+  const [syncImportPassword, setSyncImportPassword] = useState("");
+  const [syncConflictMode, setSyncConflictMode] =
+    useState<ConflictMode>("overwrite");
+  const [syncProgressBar, setSyncProgressBar] = useState<{
+    label: string;
+    percentage: number;
+    detail?: string;
+  } | null>(null);
 
   // Import state
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -153,9 +158,7 @@ export function DataSettings() {
       if (err instanceof Error && err.message === "ENCRYPTED") {
         setNeedsPassword(true);
       } else {
-        toast.error(
-          err instanceof Error ? err.message : "Không thể đọc tệp.",
-        );
+        toast.error(err instanceof Error ? err.message : "Không thể đọc tệp.");
         setImportFile(null);
       }
     }
@@ -252,369 +255,415 @@ export function DataSettings() {
     );
   }, []);
 
+  // ─── Cloud sync ───────────────────────────────────────────
+
+  const handleSyncUpload = useCallback(async () => {
+    setSyncUploading(true);
+    setSyncCode("");
+    setSyncExpiresAt(null);
+    setSyncProgressBar({
+      label: "Đang thu thập dữ liệu",
+      percentage: 0,
+    });
+
+    try {
+      const code = generateSyncCode();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+      const payload = await buildExportPayload({
+        novelIds: selectedNovelIds.length > 0 ? selectedNovelIds : undefined,
+        includeAISettings: includeAI,
+        includeConversations,
+        includeLargeDictionaryData: false,
+        password: syncPassword || undefined,
+        onProgress: (info) => {
+          setSyncProgressBar({
+            label: "Đang thu thập dữ liệu",
+            percentage: Math.round(info.percentage * 0.3),
+            detail: info.tableName,
+          });
+        },
+        onStageProgress: (info) => {
+          if (info.stage === "combine") {
+            setSyncProgressBar({
+              label: "Đang hợp nhất dữ liệu",
+              percentage: 38,
+              detail: info.message,
+            });
+          } else if (info.stage === "encrypt") {
+            setSyncProgressBar({
+              label: "Đang mã hoá bản sao lưu",
+              percentage: 46,
+              detail: info.message,
+            });
+          } else if (info.stage === "finalize") {
+            setSyncProgressBar({
+              label: "Đang chuẩn bị tải lên",
+              percentage: 50,
+              detail: info.message,
+            });
+          }
+        },
+      });
+
+      const parsedPayload = JSON.parse(payload.json) as unknown;
+      const envelope = JSON.stringify({
+        version: 1,
+        code,
+        expiresAt,
+        payload: parsedPayload,
+      });
+
+      await upload(
+        `sync/${code}.json`,
+        new Blob([envelope], { type: "application/json" }),
+        {
+          access: "public",
+          handleUploadUrl: "/api/sync/upload",
+          contentType: "application/json",
+          multipart: true,
+          clientPayload: JSON.stringify({ code, expiresAt }),
+          onUploadProgress: ({ percentage }) => {
+            setSyncProgressBar({
+              label: "Tải lên Cloud",
+              percentage: 50 + Math.round(percentage * 0.5),
+            });
+          },
+        },
+      );
+
+      setSyncCode(code);
+      setSyncExpiresAt(expiresAt);
+      setSyncProgressBar({
+        label: "Đã tải lên hoàn tất",
+        percentage: 100,
+      });
+      toast.success("Đã tải dữ liệu lên cloud.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Không thể tải dữ liệu lên cloud.",
+      );
+    } finally {
+      setSyncUploading(false);
+      setTimeout(() => {
+        setSyncProgressBar((prev) => (prev?.percentage === 100 ? null : prev));
+      }, 1200);
+    }
+  }, [selectedNovelIds, includeAI, includeConversations, syncPassword]);
+
+  const handleCopySyncCode = useCallback(async () => {
+    if (!syncCode) return;
+    try {
+      await navigator.clipboard.writeText(syncCode);
+      toast.success("Đã sao chép mã đồng bộ.");
+    } catch {
+      toast.error("Không thể sao chép mã.");
+    }
+  }, [syncCode]);
+
+  const handleSyncDownload = useCallback(async () => {
+    const code = syncDownloadCode.trim().toUpperCase();
+    if (!/^[0-9A-F]{8}$/.test(code)) {
+      toast.error("Mã đồng bộ phải gồm 8 ký tự hex.");
+      return;
+    }
+
+    setSyncDownloading(true);
+    setSyncPreview(null);
+    setSyncNeedsPassword(false);
+    setSyncImportPassword("");
+    setSyncFile(null);
+    setSyncProgressBar({
+      label: "Xử lý mã đồng bộ",
+      percentage: 5,
+    });
+
+    try {
+      const res = await fetch(`/api/sync/download/${code}`, {
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        let message = "Không thể tải dữ liệu đồng bộ.";
+        try {
+          const parsed = JSON.parse(text) as { error?: string };
+          if (parsed.error) message = parsed.error;
+        } catch {
+          // ignore parse error and keep generic message
+        }
+        throw new Error(message);
+      }
+
+      const resolved = (await res.json()) as { url?: string; error?: string };
+      if (!resolved.url) {
+        throw new Error(resolved.error || "Không thể resolve link đồng bộ.");
+      }
+
+      const blobRes = await fetch(resolved.url, {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      if (!blobRes.ok) {
+        throw new Error("Không thể tải dữ liệu từ Blob.");
+      }
+      const totalBytes = Number(blobRes.headers.get("content-length") || 0);
+      let raw: string;
+      if (blobRes.body) {
+        const reader = blobRes.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let received = 0;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            chunks.push(value);
+            received += value.byteLength;
+            if (totalBytes > 0) {
+              const pct = Math.min(
+                85,
+                12 + Math.round((received / totalBytes) * 73),
+              );
+              setSyncProgressBar({
+                label: "Tải về bản sao lưu",
+                percentage: pct,
+                detail: `${formatFileSize(received)} / ${formatFileSize(totalBytes)}`,
+              });
+            } else {
+              setSyncProgressBar({
+                label: "Tải về bản sao lưu",
+                percentage: 70,
+                detail: `${formatFileSize(received)}`,
+              });
+            }
+          }
+        }
+        raw = new TextDecoder().decode(
+          chunks.length === 1
+            ? chunks[0]
+            : (() => {
+                const merged = new Uint8Array(received);
+                let offset = 0;
+                for (const chunk of chunks) {
+                  merged.set(chunk, offset);
+                  offset += chunk.byteLength;
+                }
+                return merged;
+              })(),
+        );
+      } else {
+        raw = await blobRes.text();
+      }
+      setSyncProgressBar({
+        label: "Đang phân tích bản sao lưu",
+        percentage: 90,
+      });
+      let text = raw;
+
+      try {
+        const parsed = JSON.parse(raw) as {
+          version?: number;
+          expiresAt?: string;
+          payload?: unknown;
+        };
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          parsed.version === 1 &&
+          typeof parsed.expiresAt === "string" &&
+          "payload" in parsed
+        ) {
+          if (Date.parse(parsed.expiresAt) < Date.now()) {
+            throw new Error("Mã đồng bộ đã hết hạn.");
+          }
+          text = JSON.stringify(parsed.payload);
+        }
+      } catch (err) {
+        if (err instanceof Error && err.message === "Mã đồng bộ đã hết hạn.") {
+          throw err;
+        }
+      }
+      setSyncProgressBar({
+        label: "Đang chuẩn bị xem trước dữ liệu nhập",
+        percentage: 96,
+      });
+
+      const file = new File([text], `novel-studio-sync-${code}.json`, {
+        type: "application/json",
+      });
+      setSyncFile(file);
+
+      try {
+        const preview = await previewImportFile(file);
+        setSyncPreview(preview);
+        setSyncProgressBar({
+          label: "Đã tải về hoàn tất",
+          percentage: 100,
+        });
+      } catch (err) {
+        if (err instanceof Error && err.message === "ENCRYPTED") {
+          setSyncNeedsPassword(true);
+          setSyncProgressBar({
+            label: "Bản sao lưu đã được mã hóa",
+            percentage: 100,
+            detail: "Nhập mật khẩu để xem trước và import.",
+          });
+        } else {
+          throw err;
+        }
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Không thể tải dữ liệu đồng bộ.",
+      );
+    } finally {
+      setSyncDownloading(false);
+      setTimeout(() => {
+        setSyncProgressBar((prev) => (prev?.percentage === 100 ? null : prev));
+      }, 1200);
+    }
+  }, [syncDownloadCode]);
+
+  const handleSyncDecryptAndPreview = useCallback(async () => {
+    if (!syncFile || !syncImportPassword) return;
+
+    try {
+      const preview = await previewImportFile(syncFile, syncImportPassword);
+      setSyncPreview(preview);
+      setSyncNeedsPassword(false);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Không thể giải mã tệp đồng bộ.",
+      );
+    }
+  }, [syncFile, syncImportPassword]);
+
+  const handleSyncImport = useCallback(async () => {
+    if (!syncFile) return;
+    const ac = new AbortController();
+    abortRef.current = ac;
+    setProgress(null);
+    setResult(null);
+    setProgressOpen(true);
+
+    try {
+      await importDatabase(
+        syncFile,
+        {
+          conflictMode: syncConflictMode,
+          signal: ac.signal,
+          onProgress: setProgress,
+        },
+        syncImportPassword || undefined,
+      );
+      setResult({ success: true, message: "Nhập dữ liệu đồng bộ thành công!" });
+      loadStats();
+      setSyncFile(null);
+      setSyncPreview(null);
+      setSyncNeedsPassword(false);
+      setSyncImportPassword("");
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setResult({ success: false, message: "Đã huỷ nhập dữ liệu." });
+      } else {
+        setResult({
+          success: false,
+          message: err instanceof Error ? err.message : "Lỗi không xác định.",
+        });
+      }
+    }
+  }, [syncFile, syncConflictMode, syncImportPassword, loadStats]);
+
   // ─── Render ─────────────────────────────────────────────
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-8">
-      <div className="mb-6">
-        <h1 className="font-heading text-2xl font-bold tracking-tight">
-          Quản lý dữ liệu
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Xuất và nhập dữ liệu ứng dụng dưới dạng tệp JSON.
-        </p>
+    <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mb-6 rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-primary/10 p-2.5">
+            <DatabaseIcon className="size-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="font-heading text-2xl font-bold tracking-tight">
+              Quản lý dữ liệu
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Xuất, nhập và đồng bộ dữ liệu ứng dụng dưới dạng tệp JSON.
+            </p>
+          </div>
+        </div>
       </div>
 
-      <Tabs defaultValue="stats">
-        <TabsList>
-          <TabsTrigger value="stats">
-            <DatabaseIcon className="size-3.5" />
-            Thống kê
-          </TabsTrigger>
-          <TabsTrigger value="export">
-            <DownloadIcon className="size-3.5" />
-            Xuất
-          </TabsTrigger>
-          <TabsTrigger value="import">
-            <UploadIcon className="size-3.5" />
-            Nhập
-          </TabsTrigger>
-          <TabsTrigger value="dictionary">
-            <BookTextIcon className="size-3.5" />
-            Từ điển
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ─── Stats Tab ─────────────────────────────────────── */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <DataSettingsTabs activeTab={activeTab} />
         <TabsContent value="stats">
-          <Card>
-            <CardHeader>
-              <CardTitle>Thống kê lưu trữ</CardTitle>
-              <CardDescription>
-                Tổng quan dữ liệu hiện có trong trình duyệt.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {statsLoading ? (
-                <p className="text-sm text-muted-foreground">Đang tải...</p>
-              ) : stats ? (
-                <div className="space-y-4">
-                  {/* Storage usage */}
-                  {stats.storageUsage != null && (
-                    <div className="flex items-center gap-3">
-                      <HardDriveIcon className="size-4 text-muted-foreground" />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <span>Dung lượng sử dụng</span>
-                          <span className="font-medium">
-                            {formatFileSize(stats.storageUsage)}
-                            {stats.storageQuota
-                              ? ` / ${formatFileSize(stats.storageQuota)}`
-                              : ""}
-                          </span>
-                        </div>
-                        {stats.storageQuota && (
-                          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-primary transition-all"
-                              style={{
-                                width: `${Math.min((stats.storageUsage / stats.storageQuota) * 100, 100)}%`,
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Record counts */}
-                  <div>
-                    <div className="mb-2 flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Tổng số bản ghi
-                      </span>
-                      <Badge variant="secondary">
-                        {stats.totalRecords.toLocaleString("vi-VN")}
-                      </Badge>
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                      {Object.entries(stats.tableCounts)
-                        .filter(([, count]) => count > 0)
-                        .map(([table, count]) => (
-                          <div
-                            key={table}
-                            className="flex items-center justify-between"
-                          >
-                            <span className="text-muted-foreground">
-                              {TABLE_LABELS[table] || table}
-                            </span>
-                            <span className="tabular-nums">
-                              {count.toLocaleString("vi-VN")}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-muted-foreground">
-                    Phiên bản DB: {CURRENT_DB_VERSION}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Không thể tải thống kê.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          <StorageStatsCard
+            stats={stats}
+            statsLoading={statsLoading}
+            formatFileSize={formatFileSize}
+          />
         </TabsContent>
 
-        {/* ─── Export Tab ────────────────────────────────────── */}
         <TabsContent value="export">
-          <Card>
-            <CardHeader>
-              <CardTitle>Xuất dữ liệu</CardTitle>
-              <CardDescription>
-                Tải về bản sao lưu dữ liệu.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Novel picker */}
-              <div>
-                <Label className="text-sm font-medium">
-                  Chọn tiểu thuyết
-                </Label>
-                <p className="mb-2 text-sm text-muted-foreground">
-                  Để trống để xuất toàn bộ dữ liệu.
-                </p>
-                {novels && novels.length > 0 ? (
-                  <div className="space-y-2">
-                    {novels.map((novel) => (
-                      <label
-                        key={novel.id}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <Checkbox
-                          checked={selectedNovelIds.includes(novel.id)}
-                          onCheckedChange={(checked) =>
-                            toggleNovel(novel.id, !!checked)
-                          }
-                        />
-                        <span>{novel.title}</span>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm italic text-muted-foreground">
-                    Chưa có tiểu thuyết.
-                  </p>
-                )}
-              </div>
-
-              {/* AI settings toggle */}
-              {selectedNovelIds.length === 0 && (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">
-                      Bao gồm cài đặt AI
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Nhà cung cấp, mô hình, và cài đặt phân tích.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={includeAI}
-                    onCheckedChange={setIncludeAI}
-                  />
-                </div>
-              )}
-
-              {/* Conversations toggle */}
-              {selectedNovelIds.length === 0 && (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">
-                      Bao gồm hội thoại
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Lịch sử chat AI.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={includeConversations}
-                    onCheckedChange={setIncludeConversations}
-                  />
-                </div>
-              )}
-
-              {/* Password */}
-              <div>
-                <Label className="text-sm font-medium">
-                  Mật khẩu bảo vệ (tuỳ chọn)
-                </Label>
-                <Input
-                  type="password"
-                  value={exportPassword}
-                  onChange={(e) => setExportPassword(e.target.value)}
-                  placeholder="Để trống nếu không cần mã hoá"
-                  className="mt-1"
-                />
-                {exportPassword && (
-                  <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                    Không thể khôi phục nếu quên mật khẩu.
-                  </p>
-                )}
-              </div>
-
-              <Button onClick={handleExport}>
-                <DownloadIcon className="mr-2 size-4" />
-                Xuất dữ liệu
-              </Button>
-            </CardContent>
-          </Card>
+          <ExportSettingsCard
+            novels={novels}
+            selectedNovelIds={selectedNovelIds}
+            includeAI={includeAI}
+            includeConversations={includeConversations}
+            exportPassword={exportPassword}
+            onToggleNovel={toggleNovel}
+            onIncludeAIChange={setIncludeAI}
+            onIncludeConversationsChange={setIncludeConversations}
+            onExportPasswordChange={setExportPassword}
+            onExport={handleExport}
+          />
         </TabsContent>
 
-        {/* ─── Import Tab ────────────────────────────────────── */}
         <TabsContent value="import">
-          <Card>
-            <CardHeader>
-              <CardTitle>Nhập dữ liệu</CardTitle>
-              <CardDescription>
-                Khôi phục dữ liệu từ tệp sao lưu.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Drop zone */}
-              <div
-                className={cn(
-                  "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 transition-colors",
-                  dragActive
-                    ? "border-primary bg-primary/5"
-                    : "border-muted-foreground/25",
-                  importFile &&
-                    !dragActive &&
-                    "border-primary/50 bg-primary/5",
-                )}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragActive(true);
-                }}
-                onDragLeave={() => setDragActive(false)}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <UploadIcon className="size-8 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Kéo thả tệp JSON vào đây hoặc nhấp để chọn
-                </p>
-                {importFile && (
-                  <Badge variant="secondary">
-                    {importFile.name} ({formatFileSize(importFile.size)})
-                  </Badge>
-                )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".json"
-                  className="hidden"
-                  onChange={handleFileSelect}
-                />
-              </div>
+          <ImportSettingsCard
+            importFile={importFile}
+            importPreview={importPreview}
+            conflictMode={conflictMode}
+            importPassword={importPassword}
+            dragActive={dragActive}
+            needsPassword={needsPassword}
+            fileSizeWarning={fileSizeWarning}
+            fileInputRef={fileInputRef}
+            formatFileSize={formatFileSize}
+            onDragActiveChange={setDragActive}
+            onDrop={handleDrop}
+            onFileSelect={handleFileSelect}
+            onImportPasswordChange={setImportPassword}
+            onDecryptAndPreview={handleDecryptAndPreview}
+            onConflictModeChange={setConflictMode}
+            onImport={handleImport}
+          />
+        </TabsContent>
 
-              {/* File size warning */}
-              {fileSizeWarning && (
-                <p className="text-sm text-amber-600 dark:text-amber-400">
-                  Tệp có kích thước lớn. Quá trình nhập có thể mất vài phút.
-                </p>
-              )}
-
-              {/* Password prompt */}
-              {needsPassword && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">
-                    Tệp được mã hoá. Nhập mật khẩu:
-                  </Label>
-                  <Input
-                    type="password"
-                    value={importPassword}
-                    onChange={(e) => setImportPassword(e.target.value)}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && handleDecryptAndPreview()
-                    }
-                  />
-                  <Button onClick={handleDecryptAndPreview} size="sm">
-                    Giải mã
-                  </Button>
-                </div>
-              )}
-
-              {/* Preview */}
-              {importPreview && (
-                <div className="space-y-2 rounded-lg border p-4">
-                  <p className="font-medium">Xem trước nội dung:</p>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    {Object.entries(importPreview.counts)
-                      .filter(([, count]) => count > 0)
-                      .map(([table, count]) => (
-                        <div key={table} className="flex justify-between">
-                          <span className="text-muted-foreground">
-                            {TABLE_LABELS[table] || table}
-                          </span>
-                          <Badge variant="secondary">{count}</Badge>
-                        </div>
-                      ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Phiên bản DB: {importPreview.meta.dbVersion} | Xuất lúc:{" "}
-                    {new Date(importPreview.meta.exportedAt).toLocaleString(
-                      "vi-VN",
-                    )}
-                  </p>
-                  {importPreview.meta.dbVersion > CURRENT_DB_VERSION && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
-                      Tệp từ phiên bản mới hơn. Có thể xảy ra lỗi.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Conflict resolution */}
-              {importPreview && (
-                <div>
-                  <Label className="text-sm font-medium">
-                    Xử lý trùng lặp
-                  </Label>
-                  <Select
-                    value={conflictMode}
-                    onValueChange={(v) => setConflictMode(v as ConflictMode)}
-                  >
-                    <SelectTrigger className="mt-1 w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="overwrite">
-                        Ghi đè tất cả
-                      </SelectItem>
-                      <SelectItem value="skip">
-                        Bỏ qua nếu tồn tại
-                      </SelectItem>
-                      <SelectItem value="keep-both">
-                        Giữ cả hai (tạo bản sao)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Import button */}
-              {importPreview && (
-                <Button onClick={handleImport}>
-                  <UploadIcon className="mr-2 size-4" />
-                  Nhập dữ liệu
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="sync">
+          <SyncSettingsCard
+            syncProgressBar={syncProgressBar}
+            syncPassword={syncPassword}
+            syncUploading={syncUploading}
+            syncCode={syncCode}
+            syncExpiresAt={syncExpiresAt}
+            syncDownloadCode={syncDownloadCode}
+            syncDownloading={syncDownloading}
+            syncNeedsPassword={syncNeedsPassword}
+            syncImportPassword={syncImportPassword}
+            syncPreview={syncPreview}
+            syncConflictMode={syncConflictMode}
+            onSyncPasswordChange={setSyncPassword}
+            onSyncUpload={handleSyncUpload}
+            onCopySyncCode={handleCopySyncCode}
+            onSyncDownloadCodeChange={(value) =>
+              setSyncDownloadCode(value.toUpperCase().replace(/[^0-9A-F]/g, ""))
+            }
+            onSyncDownload={handleSyncDownload}
+            onSyncImportPasswordChange={setSyncImportPassword}
+            onSyncDecryptAndPreview={handleSyncDecryptAndPreview}
+            onSyncConflictModeChange={setSyncConflictMode}
+            onSyncImport={handleSyncImport}
+          />
         </TabsContent>
 
         {/* ─── Dictionary Tab ──────────────────────────────────── */}
@@ -622,7 +671,6 @@ export function DataSettings() {
           <DictionaryManagement />
         </TabsContent>
       </Tabs>
-
       {/* ─── Progress Dialog ──────────────────────────────── */}
       <ProgressDialog
         open={progressOpen}

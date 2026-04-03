@@ -25,7 +25,7 @@ import {
 // ─── Constants ──────────────────────────────────────────────
 
 const CURRENT_EXPORT_VERSION = 1;
-export const CURRENT_DB_VERSION = 1;
+export const CURRENT_DB_VERSION = 9;
 
 const NOVEL_SCOPED_TABLES = [
   "novels",
@@ -36,6 +36,13 @@ const NOVEL_SCOPED_TABLES = [
   "nameEntries",
   "replaceRules",
   "excludedNames",
+  "nameFrequency",
+  "plotArcs",
+  "chapterPlans",
+  "characterArcs",
+  "writingSettings",
+  "writingSessions",
+  "writingStepResults",
 ] as const;
 
 const AI_TABLES = [
@@ -46,6 +53,9 @@ const AI_TABLES = [
 ] as const;
 
 const CHAT_TABLES = ["conversations", "conversationMessages"] as const;
+const QT_BASE_TABLES = ["dictMeta", "convertSettings"] as const;
+const QT_LARGE_TABLES = ["dictCache", "dictEntries"] as const;
+const OTHER_GLOBAL_TABLES = ["ttsSettings"] as const;
 
 const SINGLETON_TABLES = new Set(["chatSettings", "analysisSettings"]);
 
@@ -61,6 +71,18 @@ const IMPORT_ORDER = [
   "nameEntries",
   "replaceRules",
   "excludedNames",
+  "nameFrequency",
+  "plotArcs",
+  "chapterPlans",
+  "characterArcs",
+  "writingSettings",
+  "writingSessions",
+  "writingStepResults",
+  "dictMeta",
+  "dictCache",
+  "dictEntries",
+  "convertSettings",
+  "ttsSettings",
   "chatSettings",
   "analysisSettings",
   "conversations",
@@ -82,6 +104,18 @@ export const TABLE_LABELS: Record<string, string> = {
   nameEntries: "Từ điển tên",
   replaceRules: "Quy tắc thay thế",
   excludedNames: "Tên loại trừ",
+  dictEntries: "Từ điển QT",
+  dictMeta: "Metadata từ điển QT",
+  dictCache: "Cache từ điển QT",
+  convertSettings: "Cài đặt chuyển đổi QT",
+  nameFrequency: "Tần suất tên",
+  ttsSettings: "Cài đặt TTS",
+  plotArcs: "Tuyến truyện",
+  chapterPlans: "Kế hoạch chương",
+  characterArcs: "Tiến trình nhân vật",
+  writingSettings: "Cài đặt viết",
+  writingSessions: "Phiên viết",
+  writingStepResults: "Kết quả bước viết",
 };
 
 // Date fields per table for reviving from JSON
@@ -100,6 +134,14 @@ const DATE_FIELDS: Record<string, string[]> = {
   nameEntries: ["createdAt", "updatedAt"],
   replaceRules: ["createdAt", "updatedAt"],
   excludedNames: ["createdAt", "updatedAt"],
+  dictMeta: ["loadedAt"],
+  nameFrequency: ["createdAt", "updatedAt"],
+  plotArcs: ["createdAt", "updatedAt"],
+  chapterPlans: ["createdAt", "updatedAt"],
+  characterArcs: ["createdAt", "updatedAt"],
+  writingSettings: ["createdAt", "updatedAt"],
+  writingSessions: ["createdAt", "updatedAt"],
+  writingStepResults: ["startedAt", "completedAt"],
 };
 
 // FK fields that need remapping in "keep-both" mode
@@ -111,8 +153,19 @@ const FK_FIELDS: Record<string, Record<string, string>> = {
   nameEntries: { scope: "novels" },
   replaceRules: { scope: "novels" },
   excludedNames: { scope: "novels" },
+  nameFrequency: { novelId: "novels" },
+  plotArcs: { novelId: "novels" },
+  chapterPlans: { novelId: "novels", chapterId: "chapters" },
+  characterArcs: { novelId: "novels", characterId: "characters" },
+  writingSessions: { novelId: "novels", chapterPlanId: "chapterPlans" },
+  writingStepResults: { sessionId: "writingSessions" },
   aiModels: { providerId: "aiProviders" },
-  conversations: { providerId: "aiProviders", modelId: "aiModels" },
+  conversations: {
+    providerId: "aiProviders",
+    modelId: "aiModels",
+    novelId: "novels",
+    chapterId: "chapters",
+  },
   conversationMessages: { conversationId: "conversations" },
 };
 
@@ -141,6 +194,124 @@ type TableData = {
   analysisSettings?: AnalysisSettings[];
   conversations?: Conversation[];
   conversationMessages?: ConversationMessage[];
+  dictEntries?: Array<{ id: string; source: string; chinese: string; vietnamese: string }>;
+  dictMeta?: Array<{ id: string; loadedAt: Date; sources: Record<string, number> }>;
+  dictCache?: Array<{ source: string; rawText: string }>;
+  convertSettings?: Array<{
+    id: string;
+    nameVsPriority: string;
+    scopePriority: string;
+    maxPhraseLength: number;
+    vpLengthPriority: string;
+    luatNhanMode: string;
+    splitMode: string;
+    capitalizeBrackets?: boolean;
+  }>;
+  nameFrequency?: Array<{
+    id: string;
+    novelId: string;
+    chinese: string;
+    reading: string;
+    count: number;
+    chapters: string[];
+    surnameType: "compound" | "single" | "rare";
+    status: "pending" | "approved" | "rejected";
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+  ttsSettings?: Array<{
+    id: "default";
+    providerId: string;
+    voiceId: string;
+    rate: number;
+    pitch: number;
+    highlightColor: string;
+    fluencyAdjust: number;
+    providerApiKeys?: Record<string, string>;
+  }>;
+  plotArcs?: Array<{
+    id: string;
+    novelId: string;
+    title: string;
+    description: string;
+    type: "main" | "subplot" | "character";
+    plotPoints: Array<{
+      id: string;
+      title: string;
+      description: string;
+      chapterOrder?: number;
+      status: "planned" | "in-progress" | "resolved";
+    }>;
+    status: "active" | "completed" | "abandoned";
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+  chapterPlans?: Array<{
+    id: string;
+    novelId: string;
+    chapterOrder: number;
+    title?: string;
+    directions: string[];
+    outline: string;
+    scenes: Array<{
+      title: string;
+      summary: string;
+      characters: string[];
+      location?: string;
+      mood?: string;
+    }>;
+    status: "planned" | "writing" | "written" | "reviewed" | "saved";
+    chapterId?: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+  characterArcs?: Array<{
+    id: string;
+    novelId: string;
+    characterId: string;
+    trajectory: string;
+    developments: Array<{ chapterOrder: number; description: string }>;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+  writingSettings?: Array<{
+    id: string;
+    chapterLength: number;
+    contextModel?: { providerId: string; modelId: string };
+    directionModel?: { providerId: string; modelId: string };
+    outlineModel?: { providerId: string; modelId: string };
+    writerModel?: { providerId: string; modelId: string };
+    reviewModel?: { providerId: string; modelId: string };
+    rewriteModel?: { providerId: string; modelId: string };
+    contextPrompt?: string;
+    directionPrompt?: string;
+    outlinePrompt?: string;
+    writerPrompt?: string;
+    reviewPrompt?: string;
+    rewritePrompt?: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+  writingSessions?: Array<{
+    id: string;
+    novelId: string;
+    chapterPlanId: string;
+    currentStep: "context" | "direction" | "outline" | "writer" | "review" | "rewrite";
+    status: "active" | "paused" | "completed" | "error";
+    contextHash?: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+  writingStepResults?: Array<{
+    id: string;
+    sessionId: string;
+    role: "context" | "direction" | "outline" | "writer" | "review" | "rewrite";
+    status: "pending" | "running" | "completed" | "editing" | "skipped" | "error";
+    output?: string;
+    error?: string;
+    startedAt?: Date;
+    completedAt?: Date;
+  }>;
 };
 
 export interface DatabaseExportData {
@@ -158,14 +329,30 @@ export interface ProgressInfo {
 
 export type ProgressCallback = (info: ProgressInfo) => void;
 export type ConflictMode = "overwrite" | "skip" | "keep-both";
+export type ExportStage = "collect" | "combine" | "encrypt" | "finalize";
+
+export interface ExportStageInfo {
+  stage: ExportStage;
+  percentage: number;
+  message: string;
+}
+
+export type ExportStageProgressCallback = (info: ExportStageInfo) => void;
 
 export interface ExportOptions {
   novelIds?: string[];
   includeAISettings?: boolean;
   includeConversations?: boolean;
+  includeLargeDictionaryData?: boolean;
   password?: string;
   onProgress?: ProgressCallback;
+  onStageProgress?: ExportStageProgressCallback;
   signal?: AbortSignal;
+}
+
+export interface ExportPayload {
+  json: string;
+  filename: string;
 }
 
 export interface ImportPreview {
@@ -253,6 +440,15 @@ function getTable(name: string) {
   return db.table(name);
 }
 
+function sanitizeConversationMessagesForExport(
+  records: ConversationMessage[],
+): ConversationMessage[] {
+  return records.map((message) => {
+    const { images: _images, files: _files, ...safeMessage } = message;
+    return safeMessage;
+  });
+}
+
 // ─── Shared Parser ──────────────────────────────────────────
 
 async function parseExportFile(
@@ -300,15 +496,17 @@ async function parseExportFile(
 
 // ─── Export ─────────────────────────────────────────────────
 
-export async function exportDatabase(
+export async function buildExportPayload(
   options: ExportOptions = {},
-): Promise<void> {
+): Promise<ExportPayload> {
   const {
     novelIds,
     includeAISettings = true,
     includeConversations = true,
+    includeLargeDictionaryData = true,
     password,
     onProgress,
+    onStageProgress,
     signal,
   } = options;
 
@@ -317,12 +515,23 @@ export async function exportDatabase(
   // Determine tables to export
   const tablesToExport: string[] = [...NOVEL_SCOPED_TABLES];
   if (!isPerNovel) {
+    tablesToExport.push(...QT_BASE_TABLES, ...OTHER_GLOBAL_TABLES);
+    if (includeLargeDictionaryData) {
+      tablesToExport.push(...QT_LARGE_TABLES);
+    }
     if (includeAISettings) tablesToExport.push(...AI_TABLES);
     if (includeConversations) tablesToExport.push(...CHAT_TABLES);
+  } else {
+    tablesToExport.push(...CHAT_TABLES);
   }
 
   const data: TableData = {};
   const total = tablesToExport.length;
+  onStageProgress?.({
+    stage: "collect",
+    percentage: 0,
+    message: "Đang thu thập dữ liệu",
+  });
 
   for (let i = 0; i < tablesToExport.length; i++) {
     checkAbort(signal);
@@ -340,7 +549,11 @@ export async function exportDatabase(
     let records: any[];
 
     // Tables that use "scope" instead of "novelId" as the foreign key to novels
-    const SCOPE_KEYED_TABLES = new Set(["nameEntries", "replaceRules", "excludedNames"]);
+    const SCOPE_KEYED_TABLES = new Set([
+      "nameEntries",
+      "replaceRules",
+      "excludedNames",
+    ]);
 
     if (
       isPerNovel &&
@@ -358,14 +571,44 @@ export async function exportDatabase(
       records = (
         await Promise.all(novelIds.map((id) => db.novels.get(id)))
       ).filter(Boolean);
+    } else if (isPerNovel && tableName === "conversations") {
+      const allRecords = await Promise.all(
+        novelIds.map((id) =>
+          getTable(tableName).where("novelId").equals(id).toArray(),
+        ),
+      );
+      records = allRecords.flat();
+    } else if (isPerNovel && tableName === "conversationMessages") {
+      const conversations = await Promise.all(
+        novelIds.map((id) => db.conversations.where("novelId").equals(id).toArray()),
+      );
+      const conversationIds = conversations.flat().map((c) => c.id);
+      const allRecords = await Promise.all(
+        conversationIds.map((id) =>
+          getTable(tableName).where("conversationId").equals(id).toArray(),
+        ),
+      );
+      records = allRecords.flat();
     } else {
       records = await getTable(tableName).toArray();
+    }
+
+    if (tableName === "conversationMessages") {
+      records = sanitizeConversationMessagesForExport(
+        records as ConversationMessage[],
+      );
     }
 
     (data as Record<string, unknown>)[tableName] = records;
 
     await new Promise((r) => setTimeout(r, 0));
   }
+
+  onStageProgress?.({
+    stage: "combine",
+    percentage: password ? 75 : 92,
+    message: "Đang kết hợp dữ liệu",
+  });
 
   const counts: Record<string, number> = {};
   for (const [key, value] of Object.entries(data)) {
@@ -393,6 +636,11 @@ export async function exportDatabase(
 
   let output: string;
   if (password) {
+    onStageProgress?.({
+      stage: "encrypt",
+      percentage: 90,
+      message: "Đang mã hoá dữ liệu",
+    });
     const encrypted = await encryptData(json, password);
     output = JSON.stringify({
       meta: {
@@ -416,7 +664,23 @@ export async function exportDatabase(
     filename = `novel-studio-backup-${new Date().toISOString().slice(0, 10)}.json`;
   }
 
-  downloadJson(output, filename);
+  onStageProgress?.({
+    stage: "finalize",
+    percentage: 100,
+    message: "Đóng gói hoàn tất",
+  });
+
+  return {
+    json: output,
+    filename,
+  };
+}
+
+export async function exportDatabase(
+  options: ExportOptions = {},
+): Promise<void> {
+  const payload = await buildExportPayload(options);
+  downloadJson(payload.json, payload.filename);
 }
 
 // ─── Import Preview ─────────────────────────────────────────
@@ -510,6 +774,12 @@ export async function importDatabase(
     } else if (conflictMode === "keep-both") {
       // Singletons: use overwrite semantics (can't have two "default" rows)
       if (SINGLETON_TABLES.has(tableName)) {
+        await table.bulkPut(records);
+      } else if (tableName === "writingSettings") {
+        records = records.map((r) => ({
+          ...r,
+          id: idMaps.novels?.get(r.id as string) ?? r.id,
+        }));
         await table.bulkPut(records);
       } else {
         // Remap all IDs to new UUIDs
