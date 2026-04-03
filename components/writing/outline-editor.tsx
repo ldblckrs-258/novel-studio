@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { OutlineScene } from "@/lib/writing/types";
-import { CheckIcon, PenLineIcon } from "lucide-react";
+import { CheckIcon, PenLineIcon, RefreshCwIcon } from "lucide-react";
 import { useState } from "react";
 
 interface EditableScene extends OutlineScene {
@@ -18,12 +18,14 @@ export function OutlineEditor({
   synopsis,
   scenes: initialScenes,
   onApprove,
+  onRegenerateAction,
   isLoading,
 }: {
   chapterTitle: string;
   synopsis: string;
   scenes: OutlineScene[];
   onApprove: (scenes: OutlineScene[]) => void;
+  onRegenerateAction?: () => void;
   isLoading?: boolean;
 }) {
   const [scenes, setScenes] = useState<EditableScene[]>(() =>
@@ -59,12 +61,27 @@ export function OutlineEditor({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-base font-semibold">{chapterTitle}</h3>
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-base font-semibold">{chapterTitle}</h3>
+          {onRegenerateAction && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRegenerateAction}
+              disabled={isLoading}
+              className="h-7 shrink-0 gap-1 text-xs text-muted-foreground"
+            >
+              <RefreshCwIcon className="h-3 w-3" />
+              Tạo lại
+            </Button>
+          )}
+        </div>
         <p className="text-sm text-muted-foreground mt-1">{synopsis}</p>
         <p className="text-xs text-muted-foreground mt-1">
           Tổng: ~{totalWords} từ &middot; {scenes.length} phân cảnh
         </p>
       </div>
+
 
       <div className="space-y-3">
         {scenes.map((scene, i) => (

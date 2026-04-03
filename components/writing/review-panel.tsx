@@ -22,6 +22,7 @@ import {
   ListIcon,
   Loader2Icon,
   PenLineIcon,
+  RefreshCwIcon,
   SaveIcon,
   SearchCheckIcon,
   XCircleIcon,
@@ -57,11 +58,13 @@ export function ReviewPanel({
   sessionId,
   onRewriteAction,
   onSaveAction,
+  onRegenerateReviewAction,
   isRewriting,
 }: {
   sessionId: string | undefined;
   onRewriteAction?: () => void;
   onSaveAction?: () => void;
+  onRegenerateReviewAction?: () => void;
   isRewriting?: boolean;
 }) {
   const reviewResult = useStepResult(sessionId, "review");
@@ -82,6 +85,8 @@ export function ReviewPanel({
   const rewrittenContent =
     rewriteResult?.status === "completed" ? rewriteResult.output : null;
   const hasRewrite = !!rewrittenContent;
+  const rewriteFailed = rewriteResult?.status === "error";
+  const rewriteRunning = rewriteResult?.status === "running";
 
   if (!review) {
     return (
@@ -142,11 +147,24 @@ export function ReviewPanel({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className={`text-2xl font-bold tabular-nums ${scoreColor}`}>
-            {review.overallScore}
-          </span>
-          <span className="text-xs text-muted-foreground">/10</span>
+        <div className="flex items-center gap-2">
+          {onRegenerateReviewAction && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onRegenerateReviewAction}
+              title="Đánh giá lại"
+            >
+              <RefreshCwIcon className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          <div className="flex items-center gap-1.5">
+            <span className={`text-2xl font-bold tabular-nums ${scoreColor}`}>
+              {review.overallScore}
+            </span>
+            <span className="text-xs text-muted-foreground">/10</span>
+          </div>
         </div>
       </div>
 
@@ -213,7 +231,18 @@ export function ReviewPanel({
               </div>
             )}
 
-            {hasRewrite && (
+            {rewriteFailed && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+                <XCircleIcon className="h-5 w-5 text-red-500" />
+                <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                  {rewriteResult?.error
+                    ? `Viết lại thất bại: ${rewriteResult.error}`
+                    : "Viết lại thất bại — nhấn \"Viết lại\" để thử lại"}
+                </span>
+              </div>
+            )}
+
+            {hasRewrite && !rewriteFailed && (
               <div className="flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
                 <CheckCircle2Icon className="h-5 w-5 text-blue-500" />
                 <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
@@ -227,17 +256,22 @@ export function ReviewPanel({
 
       {/* Action buttons */}
       <div className="border-t p-3 flex gap-2">
-        {hasIssues && !hasRewrite && (
+        {hasIssues && (
           <Button
             onClick={onRewriteAction}
-            disabled={isRewriting}
+            disabled={isRewriting || rewriteRunning}
             className="flex-1"
-            variant={hasCritical ? "default" : "outline"}
+            variant={hasRewrite ? "outline" : hasCritical ? "default" : "outline"}
           >
-            {isRewriting ? (
+            {isRewriting || rewriteRunning ? (
               <>
                 <Loader2Icon className="h-4 w-4 mr-1 animate-spin" />
                 Đang viết lại...
+              </>
+            ) : hasRewrite ? (
+              <>
+                <RefreshCwIcon className="h-4 w-4 mr-1" />
+                Viết lại khác
               </>
             ) : (
               <>

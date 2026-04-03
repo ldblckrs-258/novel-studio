@@ -10,7 +10,7 @@ import {
 import { useStepResult } from "@/lib/hooks";
 import { useWritingPipelineStore } from "@/lib/stores/writing-pipeline";
 import { countWords } from "@/lib/utils";
-import { ArrowDownIcon, Loader2Icon, PenLineIcon } from "lucide-react";
+import { ArrowDownIcon, Loader2Icon, PenLineIcon, RefreshCwIcon } from "lucide-react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 
 function ScrollToBottomButton() {
@@ -29,8 +29,10 @@ function ScrollToBottomButton() {
 
 export function ChapterPreview({
   sessionId,
+  onRegenerateAction,
 }: {
   sessionId: string | undefined;
+  onRegenerateAction?: () => void;
 }) {
   const stepResult = useStepResult(sessionId, "writer");
   const streamingContent = useWritingPipelineStore((s) => s.streamingContent);
@@ -76,12 +78,23 @@ export function ChapterPreview({
           <span className="text-xs text-muted-foreground">
             {wordCount.toLocaleString()} từ
           </span>
-          {isStreaming && (
+          {isStreaming ? (
             <div className="flex gap-0.5">
               <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
               <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
               <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
             </div>
+          ) : (
+            onRegenerateAction && (
+              <button
+                onClick={onRegenerateAction}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                title="Viết lại nội dung"
+              >
+                <RefreshCwIcon className="h-3 w-3" />
+                Viết lại
+              </button>
+            )
           )}
         </div>
       </div>

@@ -372,17 +372,24 @@ export default function AutoWritePage() {
       .where("[sessionId+role]")
       .equals([activeSession.id, "outline"])
       .first();
-    if (!outlineJson?.output) return;
-    const { saveGeneratedChapter } = await import("@/lib/writing/save-chapter");
-    const outline = JSON.parse(outlineJson.output);
-    await saveGeneratedChapter({
-      novelId,
-      sessionId: activeSession.id,
-      chapterPlanId: activeSession.chapterPlanId,
-      outline,
-    });
-    toast.success("Đã lưu chương");
-    selectNextPlan();
+    if (!outlineJson?.output) {
+      toast.error("Không tìm thấy giàn ý. Vui lòng kiểm tra lại pipeline.");
+      return;
+    }
+    try {
+      const { saveGeneratedChapter } = await import("@/lib/writing/save-chapter");
+      const outline = JSON.parse(outlineJson.output);
+      await saveGeneratedChapter({
+        novelId,
+        sessionId: activeSession.id,
+        chapterPlanId: activeSession.chapterPlanId,
+        outline,
+      });
+      toast.success("Đã lưu chương");
+      selectNextPlan();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Lỗi khi lưu chương");
+    }
   }, [activeSession, novelId, selectNextPlan]);
 
   const handleStaleRerun = useCallback(async () => {
@@ -394,6 +401,66 @@ export default function AutoWritePage() {
     setStaleWarning(false);
     handleStartPipeline();
   }, [activeSession, handleStartPipeline]);
+
+  // ── Step Re-run Handlers ───────────────────────────────────
+
+  /** Delete step results from `fromStep` onwards and re-run pipeline from that step */
+  const resetAndRerun = useCallback(
+    async (
+      fromStep: WritingAgentRole,
+      opts?: { clearDirections?: boolean; clearOutline?: boolean },
+    ) => {
+      if (!activeSession) return;
+      const stepsToDelete: WritingAgentRole[] = [
+        "context",
+        "direction",
+        "outline",
+        "writer",
+        "review",
+        "rewrite",
+      ];
+      const fromIdx = stepsToDelete.indexOf(fromStep);
+      for (const role of stepsToDelete.slice(fromIdx)) {
+        const result = await db.writingStepResults
+          .where("[sessionId+role]")
+          .equals([activeSession.id, role])
+          .first();
+        if (result) await db.writingStepResults.delete(result.id);
+      }
+      if (opts?.clearDirections || opts?.clearOutline) {
+        await db.chapterPlans.update(activeSession.chapterPlanId, {
+          ...(opts.clearDirections ? { directions: [] } : {}),
+          ...(opts.clearOutline ? { outline: undefined, scenes: [] } : {}),
+          status: "writing",
+          updatedAt: new Date(),
+        });
+      }
+      await updateWritingSession(activeSession.id, { currentStep: fromStep });
+      if (fromStep === "writer") clearStreamingContent();
+      handleStartPipeline();
+    },
+    [activeSession, clearStreamingContent, handleStartPipeline],
+  );
+
+  const handleRerunDirection = useCallback(
+    () => resetAndRerun("direction", { clearDirections: true, clearOutline: true }),
+    [resetAndRerun],
+  );
+
+  const handleRerunOutline = useCallback(
+    () => resetAndRerun("outline", { clearOutline: true }),
+    [resetAndRerun],
+  );
+
+  const handleRerunWriter = useCallback(
+    () => resetAndRerun("writer"),
+    [resetAndRerun],
+  );
+
+  const handleRerunReview = useCallback(
+    () => resetAndRerun("review"),
+    [resetAndRerun],
+  );
 
   // ── Dashboard Actions ─────────────────────────────────────
 
@@ -643,6 +710,7 @@ export default function AutoWritePage() {
                     <DirectionSelector
                       options={directionOutput.options}
                       onConfirm={handleDirectionConfirm}
+                      onRegenerateAction={handleRerunDirection}
                       isLoading={isRunning}
                     />
                   ) : isRunning &&
@@ -688,6 +756,7 @@ export default function AutoWritePage() {
                       synopsis={outlineOutput.synopsis}
                       scenes={outlineOutput.scenes}
                       onApprove={handleOutlineApprove}
+                      onRegenerateAction={handleRerunOutline}
                       isLoading={isRunning}
                     />
                   ) : isRunning && activeSession?.currentStep === "outline" ? (
@@ -719,7 +788,14 @@ export default function AutoWritePage() {
                 </TabsContent>
 
                 <TabsContent value="content">
-                  <ChapterPreview sessionId={activeSession?.id} />
+                  <ChapterPreview
+                    sessionId={activeSession?.id}
+                    onRegenerateAction={
+                      activeSession && !isRunning
+                        ? handleRerunWriter
+                        : undefined
+                    }
+                  />
                 </TabsContent>
 
                 <TabsContent value="review">
@@ -727,6 +803,11 @@ export default function AutoWritePage() {
                     sessionId={activeSession?.id}
                     onRewriteAction={handleRewrite}
                     onSaveAction={handleSaveChapter}
+                    onRegenerateReviewAction={
+                      activeSession && !isRunning
+                        ? handleRerunReview
+                        : undefined
+                    }
                     isRewriting={isRewriting}
                   />
                 </TabsContent>

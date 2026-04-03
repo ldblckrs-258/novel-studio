@@ -4,16 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import type { DirectionOption } from "@/lib/writing/types";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, RefreshCwIcon } from "lucide-react";
 import { useState } from "react";
 
 export function DirectionSelector({
   options,
   onConfirm,
+  onRegenerateAction,
   isLoading,
 }: {
   options: DirectionOption[];
   onConfirm: (selectedDirections: string[]) => void;
+  onRegenerateAction?: () => void;
   isLoading?: boolean;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -42,7 +44,21 @@ export function DirectionSelector({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium">Chọn hướng đi cho chương mới</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium">Chọn hướng đi cho chương mới</h3>
+        {onRegenerateAction && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRegenerateAction}
+            disabled={isLoading}
+            className="h-7 gap-1 text-xs text-muted-foreground"
+          >
+            <RefreshCwIcon className="h-3 w-3" />
+            Tạo lại
+          </Button>
+        )}
+      </div>
 
       <div className="grid gap-3">
         {options.map((option) => (
