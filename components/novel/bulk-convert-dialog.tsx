@@ -14,8 +14,9 @@ import { ConvertConfig } from "@/components/convert-config";
 import { db, type Chapter } from "@/lib/db";
 import { useConvertSettings } from "@/lib/hooks/use-convert-settings";
 import { useExcludedNamesList } from "@/lib/hooks/use-excluded-names";
+import { updateChapter } from "@/lib/hooks/use-chapters";
 import { getMergedNameDict } from "@/lib/hooks/use-name-entries";
-import { convertBatch } from "@/lib/hooks/use-qt-engine";
+import { convertBatch, convertText } from "@/lib/hooks/use-qt-engine";
 import {
   createSceneVersion,
   ensureInitialVersion,
@@ -34,6 +35,8 @@ interface ChapterResult {
   chapterId: string;
   sceneId: string;
   title: string;
+  originalTitle: string;
+  convertedTitle: string;
   original: string;
   output: string;
 }
@@ -126,6 +129,8 @@ export function BulkConvertDialog({
               chapterId: itemId,
               sceneId: info.sceneId,
               title: info.title,
+              originalTitle: info.title,
+              convertedTitle: info.title,
               original: originalScene.content,
               output: plainText,
             });
@@ -134,7 +139,28 @@ export function BulkConvertDialog({
         },
       });
 
-      const changed = batchResults.filter((r) => r.output !== r.original);
+      const withTitles = await Promise.all(
+        batchResults.map(async (r) => {
+          const trimmed = r.title.trim();
+          if (!trimmed) {
+            return { ...r, originalTitle: r.title, convertedTitle: r.title };
+          }
+          const titleResult = await convertText(trimmed, {
+            novelNames: nameDict,
+            options: mergedOptions,
+          });
+          return {
+            ...r,
+            originalTitle: r.title,
+            convertedTitle: titleResult.plainText.trim(),
+          };
+        }),
+      );
+
+      const changed = withTitles.filter(
+        (r) =>
+          r.output !== r.original || r.convertedTitle !== r.originalTitle,
+      );
 
       if (changed.length === 0) {
         toast.info("Không có thay đổi nào");
@@ -231,6 +257,11 @@ export function BulkConvertDialog({
           result.output,
         );
         await updateScene(result.sceneId, { content: result.output });
+        if (result.convertedTitle !== result.originalTitle) {
+          await updateChapter(result.chapterId, {
+            title: result.convertedTitle,
+          });
+        }
       }
       toast.success(`Đã áp dụng convert cho ${approved.length} chương`);
       setStep("done");
@@ -293,13 +324,23 @@ export function BulkConvertDialog({
         {step === "review" && currentResult && (
           <div className="space-y-3">
             {/* Progress info */}
-            <div className="flex items-center text-xs text-muted-foreground">
-              <span>
+            <div className="space-y-1 text-xs text-muted-foreground">
+              <div>
                 Chương {currentIndex + 1}/{results.length}:{" "}
                 <strong className="text-foreground">
-                  {currentResult.title}
+                  {currentResult.convertedTitle !== currentResult.originalTitle
+                    ? currentResult.convertedTitle
+                    : currentResult.title}
                 </strong>
-              </span>
+              </div>
+              {currentResult.convertedTitle !== currentResult.originalTitle && (
+                <p>
+                  Tiêu đề gốc:{" "}
+                  <span className="font-mono text-foreground">
+                    {currentResult.originalTitle}
+                  </span>
+                </p>
+              )}
             </div>
 
             <LineEditor

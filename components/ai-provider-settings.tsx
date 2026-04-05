@@ -52,8 +52,7 @@ import {
 } from "@/components/ui/tooltip";
 import { WebGPUModelManagerDialog } from "@/components/webgpu-model-status";
 import { PROVIDER_PRESETS, getPreset } from "@/lib/ai/presets";
-import type { AIProvider, ProviderType } from "@/lib/db";
-import { db } from "@/lib/db";
+import type { AIProvider, AIModel, ProviderType } from "@/lib/db";
 import {
   createAIModelManual,
   createAIProvider,
@@ -66,7 +65,6 @@ import {
   useAIModels,
   useAIProviders,
 } from "@/lib/hooks";
-import type { AIModel } from "@/lib/db";
 import {
   ExternalLinkIcon,
   EyeIcon,
@@ -138,23 +136,35 @@ function ProviderFormDialog({
         await updateAIProvider(provider.id, data);
         toast.success("Đã cập nhật nhà cung cấp");
       } else {
+        const now = new Date();
         const id = await createAIProvider({ ...data, isActive: true });
+        const fullProvider: AIProvider = {
+          id,
+          ...data,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        };
 
-        // Auto-populate known models for native providers
-        if (preset && preset.popularModels.length > 0) {
-          const now = new Date();
-          await db.aiModels.bulkAdd(
-            preset.popularModels.map((modelId) => ({
-              id: crypto.randomUUID(),
-              providerId: id,
-              modelId,
-              name: modelId,
-              createdAt: now,
-            })),
-          );
+        if (providerType !== "webgpu") {
+          try {
+            const count = await fetchAndSyncModels(fullProvider);
+            toast.success(
+              count > 0
+                ? `Đã thêm nhà cung cấp — đã đồng bộ ${count} mô hình`
+                : "Đã thêm nhà cung cấp — API không trả về mô hình nào",
+            );
+          } catch (err) {
+            toast.success("Đã thêm nhà cung cấp");
+            toast.warning(
+              err instanceof Error
+                ? err.message
+                : "Không thể tải danh sách mô hình. Thử nút làm mới trên thẻ nhà cung cấp.",
+            );
+          }
+        } else {
+          toast.success("Đã thêm nhà cung cấp");
         }
-
-        toast.success("Đã thêm nhà cung cấp");
       }
       onOpenChange(false);
     } catch {
