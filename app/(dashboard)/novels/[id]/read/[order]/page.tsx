@@ -85,6 +85,7 @@ export default function ReadingView() {
     if (isNaN(orderNum) || clampedIndex !== requestedIndex) {
       router.replace(`/novels/${id}/read/${clampedIndex + 1}`);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapters?.length, clampedIndex, requestedIndex, orderNum, id, router]);
 
   // Sync store whenever the chapter changes (URL is source of truth here)
@@ -96,6 +97,7 @@ export default function ReadingView() {
       totalChapters: chapters.length,
       chapterIndex: clampedIndex,
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, novel?.title, chapters?.length, clampedIndex]);
 
   // Keep chapter title in sync

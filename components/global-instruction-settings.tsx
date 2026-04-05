@@ -20,6 +20,7 @@ export function GlobalInstructionSettings() {
   // Sync from DB on initial load (useLiveQuery is async)
   useEffect(() => {
     if (!initialized.current && settings.globalSystemInstruction !== undefined) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setValue(settings.globalSystemInstruction ?? "");
       initialized.current = true;
     }

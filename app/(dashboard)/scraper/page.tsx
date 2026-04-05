@@ -133,6 +133,7 @@ function VirtualScraperChapterPicker({
     );
   }, [chapters, search]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: filtered.length,
     getScrollElement: () => parentRef.current,
@@ -201,6 +202,7 @@ function VirtualScraperChapterPicker({
 
 function VirtualScrapingChapterRows({ chapters }: { chapters: ChapterContent[] }) {
   const parentRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: chapters.length,
     getScrollElement: () => parentRef.current,
@@ -267,6 +269,7 @@ function VirtualPreviewChapterRows({
   onRetry: (index: number) => void;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: chapters.length,
     getScrollElement: () => parentRef.current,

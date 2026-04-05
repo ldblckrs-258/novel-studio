@@ -105,6 +105,7 @@ export function ReviewPanel({
     if (reviewCompareFocusNonce === consumedCompareNonce.current) return;
     if (!rewrittenContent) return;
     consumedCompareNonce.current = reviewCompareFocusNonce;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setViewMode("diff");
   }, [reviewCompareFocusNonce, rewrittenContent]);
 

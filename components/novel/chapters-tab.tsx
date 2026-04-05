@@ -154,6 +154,7 @@ export function ChaptersTab({
     return results;
   }, [chapters, debouncedQuery]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: filteredChapters.length,
     getScrollElement: () => scrollContainerRef.current,

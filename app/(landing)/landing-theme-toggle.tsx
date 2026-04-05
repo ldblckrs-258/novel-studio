@@ -2,25 +2,34 @@
 
 import { Button } from "@/components/ui/button";
 import { MoonIcon, SunIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+function getSnapshot() {
+  const stored = localStorage.getItem("theme");
+  return (
+    stored === "dark" ||
+    (!stored && matchMedia("(prefers-color-scheme:dark)").matches)
+  );
+}
+
+function subscribe(cb: () => void) {
+  // Re-check when storage changes (cross-tab) or color scheme changes
+  window.addEventListener("storage", cb);
+  const mql = matchMedia("(prefers-color-scheme:dark)");
+  mql.addEventListener("change", cb);
+  return () => {
+    window.removeEventListener("storage", cb);
+    mql.removeEventListener("change", cb);
+  };
+}
 
 export function LandingThemeToggle() {
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("theme");
-    const isDark =
-      stored === "dark" ||
-      (!stored && matchMedia("(prefers-color-scheme:dark)").matches);
-    document.documentElement.classList.toggle("dark", isDark);
-    setDark(isDark);
-  }, []);
+  const dark = useSyncExternalStore(subscribe, getSnapshot, () => false);
 
   const toggle = () => {
     const next = !dark;
     document.documentElement.classList.toggle("dark", next);
     localStorage.setItem("theme", next ? "dark" : "light");
-    setDark(next);
   };
 
   return (

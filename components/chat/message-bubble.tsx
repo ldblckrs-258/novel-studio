@@ -384,6 +384,7 @@ export function MessageBubble({
                   }}
                   className="overflow-hidden rounded-lg border border-white/10 transition-opacity hover:opacity-90"
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={img.dataUrl}
                     alt={img.name ?? `Ảnh ${i + 1}`}
