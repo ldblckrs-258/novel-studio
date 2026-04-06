@@ -24,17 +24,20 @@ export async function runOutlineAgent(
     .map((d, i) => `${i + 1}. ${d}`)
     .join("\n");
 
-  const basePrompt = `Dựa trên bối cảnh và hướng đi đã chọn, hãy tạo giàn ý chi tiết cho chương mới.
-
-## Bối cảnh
+  const basePrompt = `<context>
 ${contextSummary}
+</context>
 
-## Hướng đi đã chọn
+<selected_directions>
 ${directionText}
+</selected_directions>
 
-## Yêu cầu
-- Tổng số từ mục tiêu: ${chapterLength} từ
-- Phân bổ số từ hợp lý cho mỗi phân cảnh`;
+<requirements>
+  <word_target>Tổng số từ mục tiêu: ${chapterLength} từ</word_target>
+  <distribution>Phân bổ số từ hợp lý cho mỗi phân cảnh dựa trên tầm quan trọng và nhịp độ.</distribution>
+</requirements>
+
+<request>Tạo giàn ý chi tiết cho chương mới dựa trên bối cảnh và hướng đi đã chọn.</request>`;
 
   const { object } = await generateStructured<OutlineAgentOutput>({
     model: config.model,

@@ -75,25 +75,29 @@ Số từ: ~${s.wordCountTarget} từ`,
     )
     .join("\n\n");
 
-  const basePrompt = `Viết chương truyện "${outline.chapterTitle}".
-
-## Tóm tắt nhanh (bước phân tích — để nắm nhịp)
+  const basePrompt = `<context_summary>
 ${contextSummary}
+</context_summary>
 
-${directionsSection}## Tham chiếu tiểu thuyết (tên nhân vật, thế giới, mạch, chương trước — phải khớp; không đổi tên, không bịa thiết lập trái với phần này)
+${directionsSection ? `<selected_directions constraint="bắt buộc tuân thủ — không tự đổi hướng khác">\n${directionsBlock}\n</selected_directions>\n\n` : ""}<novel_reference note="tên nhân vật, thế giới, mạch truyện, chương trước — phải khớp chính xác; không đổi tên, không bịa thiết lập trái với dữ liệu này">
 ${referenceBlock}
+</novel_reference>
 
-## Tóm tắt chương (giàn ý)
+<chapter_synopsis>
 ${outline.synopsis}
+</chapter_synopsis>
 
-## Giàn ý chi tiết
+<detailed_outline>
 ${outlineText}
+</detailed_outline>
 
-## Yêu cầu
-- Tổng số từ mục tiêu: ${outline.totalWordCountTarget} từ
-- Bám sát giàn ý và hướng đi đã chọn; giữ nhất quán với tham chiếu tiểu thuyết ở trên
-- Viết văn xuôi thuần túy, không dùng markdown
-- Viết bằng Tiếng Việt`;
+<requirements>
+  <req>Tên chương: "${outline.chapterTitle}"</req>
+  <req>Tổng số từ mục tiêu: ${outline.totalWordCountTarget} từ</req>
+  <req>Bám sát giàn ý và hướng đi đã chọn; giữ nhất quán với tham chiếu tiểu thuyết.</req>
+  <req>Viết văn xuôi thuần túy, không dùng markdown.</req>
+  <req>Viết bằng Tiếng Việt.</req>
+</requirements>`;
 
   const result = streamText({
     model: config.model,

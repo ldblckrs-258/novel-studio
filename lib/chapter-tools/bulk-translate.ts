@@ -5,7 +5,12 @@ import type { AnalysisSettings, Scene } from "@/lib/db";
 import { createSceneVersion, ensureInitialVersion } from "@/lib/hooks/use-scene-versions";
 import type { ContextDepth } from "./context";
 import { buildTranslateContext } from "./context";
-import { resolveChapterToolPrompts } from "./prompts";
+import {
+  resolveChapterToolPrompts,
+  buildTranslateTitleNote,
+  buildTranslateSceneBreakNote,
+  buildTranslateUserPrompt,
+} from "./prompts";
 import type { TranslateChapterResult, TranslateError } from "@/lib/stores/bulk-translate";
 
 // ── Shared constants & helpers (also used by translate-mode.tsx) ──
@@ -166,10 +171,10 @@ export async function runBulkTranslate(opts: BulkTranslateOptions): Promise<void
       // Build system prompt
       let systemPrompt = basePrompt;
       if (translateTitle) {
-        systemPrompt += `\n\nNgoài nội dung chương, bạn cũng cần dịch tiêu đề chương. Định dạng kết quả:\n<tiêu đề đã dịch>\n${TITLE_SEPARATOR}\n<nội dung đã dịch>`;
+        systemPrompt += buildTranslateTitleNote(TITLE_SEPARATOR);
       }
       if (isMultiScene) {
-        systemPrompt += `\n\nNội dung có các dấu phân cách ${SCENE_BREAK} giữa các phân cảnh. Giữ nguyên các dấu này ở đúng vị trí.`;
+        systemPrompt += buildTranslateSceneBreakNote(SCENE_BREAK);
       }
       if (context) {
         systemPrompt += `\n\n${context}`;
@@ -177,7 +182,7 @@ export async function runBulkTranslate(opts: BulkTranslateOptions): Promise<void
 
       // Build user prompt
       const userPrompt = translateTitle
-        ? `Tiêu đề: ${chapter.title}\n${TITLE_SEPARATOR}\n${joinedContent}`
+        ? buildTranslateUserPrompt(joinedContent, chapter.title, TITLE_SEPARATOR)
         : joinedContent;
 
       // Stream translation

@@ -33,7 +33,15 @@ export async function runDirectionAgent(
       ? `\n\nĐang viết chương ${chapterOrder}. Các điểm cốt truyện đánh dấu [QUÁ HẠN] hoặc [đến hạn] nên được ưu tiên giải quyết trong các hướng đi đề xuất.`
       : "";
 
-  const basePrompt = `Dựa trên bối cảnh sau, hãy đề xuất 3-5 hướng đi cho chương tiếp theo. Mỗi hướng cần có id duy nhất. Trường recommendedOptionIds phải là 1-3 id trong danh sách options mà bạn cho là ưu tiên nhất (thứ tự từ quan trọng đến phụ).\n\n${contextSummary}${arcSummary}${chapterNote}`;
+  const basePrompt = `<context_summary>
+${contextSummary}
+</context_summary>
+${arcSummary ? `\n<plot_arcs>\n${arcSummary.trim()}\n</plot_arcs>` : ""}
+${chapterNote ? `\n<chapter_note>\n${chapterNote.trim()}\n</chapter_note>` : ""}
+
+<request>
+Đề xuất 3–5 hướng đi cho chương tiếp theo. Mỗi hướng cần có id duy nhất. Trường recommendedOptionIds phải là 1–3 id trong danh sách options mà bạn cho là ưu tiên nhất (thứ tự từ quan trọng đến phụ).
+</request>`;
 
   const { object } = await generateStructured<DirectionAgentOutput>({
     model: config.model,

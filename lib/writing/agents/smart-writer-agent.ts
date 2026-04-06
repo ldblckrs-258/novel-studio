@@ -3,6 +3,10 @@ import { withGlobalInstruction } from "@/lib/ai/system-prompt";
 import { db } from "@/lib/db";
 import { appendUserInstructionToPrompt } from "@/lib/writing/append-user-instruction";
 import {
+  buildSmartWriterUserPrompt,
+  SMART_WRITER_TOOL_LIMIT_MESSAGE,
+} from "@/lib/writing/prompts";
+import {
   getSmartWriterToolLabelVi,
   SMART_WRITER_WRITING_LABEL_VI,
 } from "@/lib/writing/smart-writer-tool-labels";
@@ -68,13 +72,6 @@ export async function runSmartWriterAgent(
     `Thế giới (rút gọn): ${ellipsis(contextOutput.worldState, 800)}`,
   ].join("\n");
 
-  const directionsSection = directionsBlock
-    ? `## Hướng đi đã chọn (bắt buộc tuân thủ)
-${directionsBlock}
-
-`
-    : "";
-
   const outlineText = outline.scenes
     .map(
       (s, i) =>
@@ -88,33 +85,23 @@ Số từ: ~${s.wordCountTarget} từ`,
     )
     .join("\n\n");
 
-  const baseUser = `Viết chương truyện "${outline.chapterTitle}" (chương thứ ${chapterOrder} trong kế hoạch).
+  const toolBudgetNote =
+    outline.scenes.length > 0
+      ? `Bạn có tổng cộng ~${maxToolSteps} lần gọi công cụ. Phân bổ hợp lý (~${Math.ceil(maxToolSteps / outline.scenes.length)} lần/phân cảnh) để đủ tra cứu trước khi viết.\n`
+      : "";
 
-Bạn có các công cụ chỉ đọc để tra cứu tiểu thuyết (nhân vật, chương trước, thế giới, tìm kiếm). Hãy gọi công cụ khi cần để đảm bảo tên, chi tiết và mạch truyện khớp dữ liệu gốc — không bịa thiết lập trái với DB.
-
-${(() => {
-  const sceneCount = outline.scenes.length;
-  return sceneCount > 0
-    ? `Bạn có tổng cộng ~${maxToolSteps} lần gọi công cụ. Phân bổ hợp lý (~${Math.ceil(maxToolSteps / sceneCount)} lần/phân cảnh) để đủ tra cứu trước khi viết.\n`
-    : "";
-})()}
-## Danh sách nhân vật (đã tải sẵn — dùng đúng tên này)
-${characterNameList}
-
-## Tóm tắt nhanh (bootstrap — có thể thiếu chi tiết; dùng công cụ để bổ sung)
-${contextSummary}
-
-${directionsSection}## Tóm tắt chương (giàn ý)
-${outline.synopsis}
-
-## Giàn ý chi tiết
-${outlineText}
-
-## Yêu cầu
-- Tổng số từ mục tiêu: ${outline.totalWordCountTarget} từ (mục tiêu chương: ~${chapterLength} từ nếu khác biệt thì ưu tiên giàn ý)
-- Bám sát giàn ý và hướng đi; sau khi đã tra cứu đủ, viết toàn bộ nội dung chương
-- Viết văn xuôi thuần túy, không dùng markdown
-- Viết bằng Tiếng Việt`;
+  const baseUser = buildSmartWriterUserPrompt({
+    chapterTitle: outline.chapterTitle,
+    chapterOrder,
+    toolBudgetNote,
+    characterNameList,
+    contextSummary,
+    directionsBlock,
+    synopsis: outline.synopsis,
+    outlineText,
+    totalWordCountTarget: outline.totalWordCountTarget,
+    chapterLength,
+  });
 
   const systemPrompt = config.systemPrompt.replace(
     "{chapterLength}",
@@ -175,8 +162,7 @@ ${outlineText}
           ...responseMessages,
           {
             role: "user",
-            content:
-              "Bạn đã đạt giới hạn số lần gọi công cụ. Dựa trên mọi thông tin đã có, hãy viết toàn bộ nội dung chương truyện ngay bây giờ: văn xuôi tiếng Việt, không markdown, bám giàn ý và hướng đi.",
+            content: SMART_WRITER_TOOL_LIMIT_MESSAGE,
           },
         ],
         abortSignal: config.abortSignal,

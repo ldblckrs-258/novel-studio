@@ -18,14 +18,20 @@ export async function saveGeneratedChapter(options: {
   if (!chapterPlan) throw new Error("Chapter plan not found");
 
   // Prefer rewrite content over writer content
-  const rewriteResult = await db.writingStepResults
-    .where("[sessionId+role]")
-    .equals([sessionId, "rewrite"])
-    .first();
-  const writerResult = await db.writingStepResults
-    .where("[sessionId+role]")
-    .equals([sessionId, "writer"])
-    .first();
+  const [rewriteResult, writerResult, reviewResult] = await Promise.all([
+    db.writingStepResults
+      .where("[sessionId+role]")
+      .equals([sessionId, "rewrite"])
+      .first(),
+    db.writingStepResults
+      .where("[sessionId+role]")
+      .equals([sessionId, "writer"])
+      .first(),
+    db.writingStepResults
+      .where("[sessionId+role]")
+      .equals([sessionId, "review"])
+      .first(),
+  ]);
 
   const finalContent =
     rewriteResult?.status === "completed" && rewriteResult.output
@@ -73,10 +79,6 @@ export async function saveGeneratedChapter(options: {
   });
 
   // Persist non-suggestion review issues for cross-session context memory
-  const reviewResult = await db.writingStepResults
-    .where("[sessionId+role]")
-    .equals([sessionId, "review"])
-    .first();
   if (reviewResult?.output) {
     try {
       const reviewOutput = JSON.parse(reviewResult.output) as {

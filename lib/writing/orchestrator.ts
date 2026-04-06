@@ -313,6 +313,8 @@ export async function runWritingPipeline(
 
   let currentStep = session.currentStep;
   let autoRetryCount = 0;
+  let lastCompletedReviewOutput: ReviewAgentOutput | null = null;
+  let outlineInstructionOverride: string | undefined;
 
   // ── Step loop ─────────────────────────────────────────────
   while (currentStep) {
@@ -388,7 +390,10 @@ export async function runWritingPipeline(
       }
 
       const config = await getAgentConfig(novelId, currentStep, abortSignal);
-      const userInstruction = stepUserInstructions?.[currentStep];
+      const userInstruction =
+        currentStep === "outline" && outlineInstructionOverride
+          ? outlineInstructionOverride
+          : stepUserInstructions?.[currentStep];
       const configWithUser: AgentConfig = {
         ...config,
         ...(userInstruction?.trim()
@@ -595,6 +600,7 @@ export async function runWritingPipeline(
             "completed",
             JSON.stringify(reviewOutput),
           );
+          lastCompletedReviewOutput = reviewOutput;
           await db.chapterPlans.update(chapterPlan.id, {
             status: "reviewed",
             updatedAt: new Date(),
@@ -606,48 +612,39 @@ export async function runWritingPipeline(
       onStepComplete?.(currentStep);
 
       // ── Hands-free auto-retry on low review score ──────────
-      if (currentStep === "review" && handsFree) {
-        const reviewJson = await getStepOutput(sessionId, "review");
-        if (reviewJson) {
-          const reviewOutput = JSON.parse(reviewJson) as {
-            overallScore: number;
-            summary: string;
-          };
-          const minScore = settings?.minScoreToAutoAccept ?? 7;
-          const maxRetries = settings?.maxAutoRetries ?? 2;
-          if (
-            reviewOutput.overallScore < minScore &&
-            autoRetryCount < maxRetries
-          ) {
-            autoRetryCount++;
-            const issuesSummary = `Lần thử trước đạt ${reviewOutput.overallScore}/10. Vấn đề: ${reviewOutput.summary} Hãy tránh các vấn đề này trong lần viết lại.`;
-            for (const role of ["outline", "writer", "review"] as const) {
-              const res = await db.writingStepResults
-                .where("[sessionId+role]")
-                .equals([sessionId, role])
-                .first();
-              if (res) await db.writingStepResults.delete(res.id);
-            }
-            await db.chapterPlans.update(session.chapterPlanId, {
-              outline: "",
-              scenes: [],
-              status: "writing",
-              updatedAt: new Date(),
-            });
-            const existingOutlineInstruction =
-              stepUserInstructions?.outline ?? "";
-            if (stepUserInstructions) {
-              stepUserInstructions.outline = existingOutlineInstruction
-                ? `${existingOutlineInstruction}\n${issuesSummary}`
-                : issuesSummary;
-            }
-            currentStep = "outline";
-            await db.writingSessions.update(sessionId, {
-              currentStep: "outline",
-              updatedAt: new Date(),
-            });
-            continue;
+      if (currentStep === "review" && handsFree && lastCompletedReviewOutput) {
+        const minScore = settings?.minScoreToAutoAccept ?? 7;
+        const maxRetries = settings?.maxAutoRetries ?? 2;
+        if (
+          lastCompletedReviewOutput.overallScore < minScore &&
+          autoRetryCount < maxRetries
+        ) {
+          autoRetryCount++;
+          const issuesSummary = `Lần thử trước đạt ${lastCompletedReviewOutput.overallScore}/10. Vấn đề: ${lastCompletedReviewOutput.summary} Hãy tránh các vấn đề này trong lần viết lại.`;
+          for (const role of ["outline", "writer", "review"] as const) {
+            const res = await db.writingStepResults
+              .where("[sessionId+role]")
+              .equals([sessionId, role])
+              .first();
+            if (res) await db.writingStepResults.delete(res.id);
           }
+          await db.chapterPlans.update(session.chapterPlanId, {
+            outline: "",
+            scenes: [],
+            status: "writing",
+            updatedAt: new Date(),
+          });
+          const existingOutlineInstruction = stepUserInstructions?.outline ?? "";
+          outlineInstructionOverride = existingOutlineInstruction
+            ? `${existingOutlineInstruction}\n${issuesSummary}`
+            : issuesSummary;
+          lastCompletedReviewOutput = null;
+          currentStep = "outline";
+          await db.writingSessions.update(sessionId, {
+            currentStep: "outline",
+            updatedAt: new Date(),
+          });
+          continue;
         }
       }
     } catch (err) {

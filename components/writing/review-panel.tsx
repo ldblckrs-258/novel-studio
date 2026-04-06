@@ -97,6 +97,12 @@ export function ReviewPanel({
     }
   }, [reviewResult]);
 
+  // Reset selection when review changes (e.g. after regenerate)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedIssueIndices(new Set());
+  }, [review]);
+
   const originalContent = writerResult?.output ?? "";
   const rewrittenContent =
     rewriteResult?.status === "completed" ? rewriteResult.output : null;
@@ -131,6 +137,9 @@ export function ReviewPanel({
 
   const hasCritical = review.issues.some((i) => i.severity === "critical");
   const hasIssues = review.issues.length > 0;
+  const hasPartialSelection =
+    selectedIssueIndices.size > 0 &&
+    selectedIssueIndices.size < review.issues.length;
   const scoreColor =
     review.overallScore >= 8
       ? "text-green-500"
@@ -327,8 +336,7 @@ export function ReviewPanel({
             <Button
               onClick={() =>
                 onRewriteAction?.(
-                  selectedIssueIndices.size > 0 &&
-                    selectedIssueIndices.size < review.issues.length
+                  hasPartialSelection
                     ? Array.from(selectedIssueIndices)
                     : undefined,
                 )
@@ -345,16 +353,14 @@ export function ReviewPanel({
               ) : hasRewrite ? (
                 <>
                   <RefreshCwIcon className="h-4 w-4 mr-1" />
-                  {selectedIssueIndices.size > 0 &&
-                  selectedIssueIndices.size < review.issues.length
+                  {hasPartialSelection
                     ? `Viết lại (${selectedIssueIndices.size} vấn đề)`
                     : "Viết lại khác"}
                 </>
               ) : (
                 <>
                   <PenLineIcon className="h-4 w-4 mr-1" />
-                  {selectedIssueIndices.size > 0 &&
-                  selectedIssueIndices.size < review.issues.length
+                  {hasPartialSelection
                     ? `Viết lại (${selectedIssueIndices.size} vấn đề)`
                     : "Viết lại"}
                 </>

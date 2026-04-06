@@ -36,14 +36,21 @@ const nameExtractionSchema = jsonSchema<{ names: ExtractedName[] }>({
   required: ["names"],
 });
 
-const EXTRACT_SYSTEM_PROMPT = `Bạn là chuyên gia phân tích tiểu thuyết Trung Quốc. Nhiệm vụ: trích xuất tất cả tên riêng (nhân vật, địa danh, môn phái, thuật ngữ, vật phẩm, kỹ năng) từ cặp văn bản gốc tiếng Trung và bản dịch tiếng Việt.
+const EXTRACT_SYSTEM_PROMPT = `<role>
+Bạn là chuyên gia phân tích tiểu thuyết Trung Quốc, thành thạo trong việc nhận diện và phân loại tên riêng từ văn bản song ngữ Trung-Việt.
+</role>
 
-Quy tắc:
-- So sánh bản gốc và bản dịch để tìm cặp tên Trung-Việt tương ứng
-- Phân loại chính xác từng cặp tên
-- Ưu tiên tên nhân vật và địa danh xuất hiện nhiều lần
-- Không bao gồm đại từ, từ phổ thông
-- Confidence: 1.0 nếu chắc chắn, 0.5-0.9 nếu không chắc`;
+<task>
+Trích xuất tất cả tên riêng (nhân vật, địa danh, môn phái, thuật ngữ, vật phẩm, kỹ năng) từ cặp văn bản gốc tiếng Trung và bản dịch tiếng Việt. So sánh hai bản để tìm cặp tên tương ứng chính xác.
+</task>
+
+<extraction_rules>
+  <rule id="pairing">So sánh bản gốc và bản dịch để xác định cặp tên Trung-Việt tương ứng. Không đoán mò khi không có đối chiếu rõ ràng.</rule>
+  <rule id="classification">Phân loại chính xác từng cặp theo đúng danh mục: nhân vật, địa danh, môn phái, thuật ngữ, vật phẩm, kỹ năng, khác.</rule>
+  <rule id="priority">Ưu tiên tên nhân vật và địa danh xuất hiện nhiều lần — đây là tên quan trọng nhất cần nhất quán.</rule>
+  <rule id="exclusions">Không bao gồm đại từ nhân xưng, từ phổ thông, hoặc từ không phải tên riêng.</rule>
+  <rule id="confidence">Confidence 1.0 nếu cặp tên rõ ràng và chắc chắn; 0.5–0.9 nếu có thể có nhiều cách dịch hoặc không hoàn toàn chắc chắn.</rule>
+</extraction_rules>`;
 
 export async function extractNamesAI(opts: {
   model: LanguageModel;
@@ -51,7 +58,7 @@ export async function extractNamesAI(opts: {
   translatedText: string;
   signal?: AbortSignal;
 }): Promise<ExtractedName[]> {
-  const prompt = `## Văn bản gốc (Trung)\n${opts.sourceText.slice(0, 5000)}\n\n## Bản dịch (Việt)\n${opts.translatedText.slice(0, 5000)}\n\nHãy trích xuất tất cả tên riêng từ cặp văn bản trên.`;
+  const prompt = `<source_text lang="zh">\n${opts.sourceText.slice(0, 5000)}\n</source_text>\n\n<translated_text lang="vi">\n${opts.translatedText.slice(0, 5000)}\n</translated_text>\n\n<request>Trích xuất tất cả tên riêng từ cặp văn bản trên.</request>`;
 
   const result = await generateStructured({
     model: opts.model,

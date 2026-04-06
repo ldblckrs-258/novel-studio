@@ -41,23 +41,25 @@ export async function runRewriteAgent(
     ? `Chỉ sửa các vấn đề được liệt kê dưới đây. Giữ nguyên hoàn toàn các phần còn lại của chương không liên quan đến các vấn đề này.`
     : `Viết lại TOÀN BỘ chương, không chỉ sửa từng phần nhỏ.`;
 
-  const basePrompt = `Dựa trên đánh giá của biên tập viên, hãy viết lại chương truyện để khắc phục các vấn đề.
-
-## Đánh giá (${review.overallScore}/10)
+  const basePrompt = `<review score="${review.overallScore}/10">
 ${review.summary}
+</review>
 
-## Các vấn đề cần sửa${isSelective ? ` (đã chọn ${issuesToFix.length}/${review.issues.length} vấn đề)` : ""}
+<issues_to_fix${isSelective ? ` selected="${issuesToFix.length}" total="${review.issues.length}"` : ""}>
 ${issuesList}
+</issues_to_fix>
 
-## Nội dung gốc
+<original_chapter>
 ${originalContent}
+</original_chapter>
 
-## Yêu cầu
-- ${scope}
-- Giữ nguyên cốt truyện, nhân vật và sự kiện
-- Khắc phục tất cả vấn đề được nêu trong đánh giá
-- Giữ nguyên phong cách và giọng văn của tác giả
-- KHÔNG dùng markdown, chỉ văn xuôi thuần túy`;
+<requirements>
+  <req>${scope}</req>
+  <req>Giữ nguyên cốt truyện, nhân vật và sự kiện gốc.</req>
+  <req>Khắc phục tất cả vấn đề được liệt kê trong issues_to_fix.</req>
+  <req>Giữ nguyên phong cách và giọng văn của tác giả.</req>
+  <req>KHÔNG dùng markdown, chỉ văn xuôi thuần túy.</req>
+</requirements>`;
 
   const result = streamText({
     model: config.model,

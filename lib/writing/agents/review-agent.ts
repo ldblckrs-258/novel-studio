@@ -17,13 +17,15 @@ export async function runReviewAgent(
     `Tuyến chưa giải quyết: ${contextOutput.unresolvedThreads.join("; ")}`,
   ].join("\n");
 
-  const basePrompt = `Đánh giá chương truyện sau dựa trên bối cảnh đã thiết lập.
-
-## Bối cảnh đã thiết lập
+  const basePrompt = `<established_context>
 ${contextSummary}
+</established_context>
 
-## Nội dung chương cần đánh giá
-${chapterContent}`;
+<chapter_to_review>
+${chapterContent}
+</chapter_to_review>
+
+<request>Đánh giá chương truyện trên dựa trên bối cảnh đã thiết lập.</request>`;
 
   const { object } = await generateStructured<ReviewAgentOutput>({
     model: config.model,

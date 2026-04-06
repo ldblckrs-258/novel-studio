@@ -19,7 +19,11 @@ export async function runContextAgent(
     input.chapterOrder,
   );
 
-  const basePrompt = `Dựa trên bối cảnh sau, hãy tổng hợp thông tin cho chương ${input.chapterOrder}:\n\n${writingContext.context}`;
+  const basePrompt = `<novel_context>
+${writingContext.context}
+</novel_context>
+
+<request>Tổng hợp thông tin bối cảnh cho chương ${input.chapterOrder} dựa trên dữ liệu trên.</request>`;
 
   const { object } = await generateStructured<ContextAgentOutput>({
     model: config.model,

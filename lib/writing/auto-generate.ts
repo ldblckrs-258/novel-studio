@@ -8,6 +8,12 @@ import type { WritingAgentRole } from "@/lib/db";
 import { withGlobalInstruction } from "@/lib/ai/system-prompt";
 import { generateStructured } from "@/lib/ai/structured";
 import { appendUserInstructionToPrompt } from "@/lib/writing/append-user-instruction";
+import {
+  DEFAULT_WORLD_BUILDING_SYSTEM,
+  DEFAULT_CHARACTER_GENERATION_SYSTEM,
+  DEFAULT_PLOT_ARC_SYSTEM,
+  buildChapterPlanSystem,
+} from "@/lib/writing/auto-generate-prompts";
 import { jsonSchema } from "ai";
 import type { LanguageModel } from "ai";
 
@@ -225,7 +231,7 @@ export async function generateWorldBuilding(
     model,
     schema: worldSchema,
     system: withGlobalInstruction(
-      options.systemPrompt ?? `Bạn là nhà xây dựng thế giới chuyên nghiệp cho tiểu thuyết. Tạo thế giới quan chi tiết dựa trên ý tưởng. Trả lời bằng Tiếng Việt.`,
+      options.systemPrompt ?? DEFAULT_WORLD_BUILDING_SYSTEM,
       globalInstruction,
     ),
     prompt: appendUserInstructionToPrompt(basePrompt, options.userInstruction),
@@ -250,7 +256,7 @@ export async function generateCharacters(
     model,
     schema: characterSchema,
     system: withGlobalInstruction(
-      options.systemPrompt ?? `Bạn là nhà văn chuyên tạo nhân vật cho tiểu thuyết. Tạo 4-6 nhân vật phù hợp với thế giới và ý tưởng. Trả lời bằng Tiếng Việt.`,
+      options.systemPrompt ?? DEFAULT_CHARACTER_GENERATION_SYSTEM,
       globalInstruction,
     ),
     prompt: appendUserInstructionToPrompt(basePrompt, options.userInstruction),
@@ -275,7 +281,7 @@ export async function generatePlotArcs(
     model,
     schema: plotArcSchema,
     system: withGlobalInstruction(
-      options.systemPrompt ?? `Bạn là nhà biên kịch chuyên nghiệp. Tạo mạch truyện chính và phụ với các điểm mốc cụ thể. Trả lời bằng Tiếng Việt.`,
+      options.systemPrompt ?? DEFAULT_PLOT_ARC_SYSTEM,
       globalInstruction,
     ),
     prompt: appendUserInstructionToPrompt(basePrompt, options.userInstruction),
@@ -301,7 +307,7 @@ export async function generateChapterPlans(
     model,
     schema: chapterPlanSchema,
     system: withGlobalInstruction(
-      options.systemPrompt ?? `Bạn là nhà văn chuyên lập kế hoạch tiểu thuyết. Tạo kế hoạch cho ${chapterCount} chương đầu tiên. Mỗi chương cần tiêu đề và 2-3 hướng đi chính. Trả lời bằng Tiếng Việt.`,
+      options.systemPrompt ?? buildChapterPlanSystem(chapterCount),
       globalInstruction,
     ),
     prompt: appendUserInstructionToPrompt(basePrompt, options.userInstruction),

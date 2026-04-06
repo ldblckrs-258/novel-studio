@@ -88,7 +88,11 @@ export function DirectionSelector({
       </div>
 
       <div className="grid gap-3">
-        {options.map((option) => (
+        {options.map((option) => {
+          const typeConf = option.type
+            ? DIRECTION_TYPE_LABELS[option.type]
+            : undefined;
+          return (
           <Card
             key={option.id}
             className={`cursor-pointer transition-colors gap-2 ${
@@ -128,17 +132,13 @@ export function DirectionSelector({
                         Gợi ý AI
                       </span>
                     )}
-                    {option.type &&
-                      (() => {
-                        const typeConf = DIRECTION_TYPE_LABELS[option.type];
-                        return typeConf ? (
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${typeConf.color}`}
-                          >
-                            {typeConf.label}
-                          </span>
-                        ) : null;
-                      })()}
+                    {typeConf && (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${typeConf.color}`}
+                      >
+                        {typeConf.label}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {option.description}
@@ -162,7 +162,8 @@ export function DirectionSelector({
               </p>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       {showCustom ? (
