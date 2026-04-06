@@ -7,6 +7,30 @@ import type { DirectionOption } from "@/lib/writing/types";
 import { PlusIcon, RefreshCwIcon } from "lucide-react";
 import { useState } from "react";
 
+const DIRECTION_TYPE_LABELS: Record<string, { label: string; color: string }> =
+  {
+    action: {
+      label: "Hành động",
+      color: "bg-red-500/10 text-red-600 dark:text-red-400",
+    },
+    "character-development": {
+      label: "Nhân vật",
+      color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    },
+    "plot-twist": {
+      label: "Bất ngờ",
+      color: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+    },
+    "world-building": {
+      label: "Thế giới",
+      color: "bg-green-500/10 text-green-600 dark:text-green-400",
+    },
+    resolution: {
+      label: "Giải quyết",
+      color: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+    },
+  };
+
 export function DirectionSelector({
   options,
   recommendedOptionIds,
@@ -104,6 +128,17 @@ export function DirectionSelector({
                         Gợi ý AI
                       </span>
                     )}
+                    {option.type &&
+                      (() => {
+                        const typeConf = DIRECTION_TYPE_LABELS[option.type];
+                        return typeConf ? (
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${typeConf.color}`}
+                          >
+                            {typeConf.label}
+                          </span>
+                        ) : null;
+                      })()}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {option.description}

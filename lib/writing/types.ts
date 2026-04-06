@@ -25,12 +25,20 @@ export interface ContextAgentOutput {
 
 // ─── Direction Agent ────────────────────────────────────────
 
+export type DirectionOptionType =
+  | "action"
+  | "character-development"
+  | "plot-twist"
+  | "world-building"
+  | "resolution";
+
 export interface DirectionOption {
   id: string;
   title: string;
   description: string;
   plotImpact: string;
   characters: string[];
+  type: DirectionOptionType;
 }
 
 export interface DirectionAgentOutput {
@@ -79,6 +87,11 @@ export interface ReviewAgentOutput {
 export interface RewriteAgentOutput {
   rewrittenContent: string;
   changesSummary: string;
+}
+
+export interface RewriteTargetOptions {
+  /** Indices into ReviewAgentOutput.issues that the rewrite should target. Undefined = rewrite all. */
+  targetIssueIndices?: number[];
 }
 
 // ─── Writing Context ────────────────────────────────────────

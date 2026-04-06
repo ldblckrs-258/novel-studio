@@ -2,8 +2,6 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Empty,
@@ -13,7 +11,9 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { InlineDiffViewer } from "@/components/ui/inline-diff-viewer";
+import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { useStepResult } from "@/lib/hooks";
 import { useWritingPipelineStore } from "@/lib/stores/writing-pipeline";
 import type { ReviewAgentOutput } from "@/lib/writing/types";
@@ -65,7 +65,7 @@ export function ReviewPanel({
   isRewriting,
 }: {
   sessionId: string | undefined;
-  onRewriteAction?: () => void;
+  onRewriteAction?: (targetIssueIndices?: number[]) => void;
   onSaveAction?: () => void;
   onRegenerateReviewAction?: () => void;
   isRewriting?: boolean;
@@ -83,6 +83,9 @@ export function ReviewPanel({
     (s) => s.reviewCompareFocusNonce,
   );
   const [viewMode, setViewMode] = useState<"issues" | "diff">("issues");
+  const [selectedIssueIndices, setSelectedIssueIndices] = useState<Set<number>>(
+    new Set(),
+  );
   const consumedCompareNonce = useRef(0);
 
   const review = useMemo((): ReviewAgentOutput | null => {
@@ -215,20 +218,50 @@ export function ReviewPanel({
                     ] ?? SEVERITY_CONFIG.suggestion;
                   const Icon = severityConf.icon;
                   return (
-                    <Card key={i} className="gap-0 mx-1">
+                    <Card
+                      key={i}
+                      className={`gap-0 mx-1 cursor-pointer transition-colors ${selectedIssueIndices.has(i) ? "border-primary/50 bg-primary/5" : ""}`}
+                      onClick={() =>
+                        setSelectedIssueIndices((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(i)) next.delete(i);
+                          else next.add(i);
+                          return next;
+                        })
+                      }
+                    >
                       <CardHeader className="py-2 px-3">
-                        <div className="flex items-center gap-2">
-                          <Icon
-                            className={`h-4 w-4 shrink-0 ${severityConf.color}`}
-                          />
-                          <CardTitle className="text-xs flex-1">
-                            {issue.description}
-                          </CardTitle>
-                          <Badge variant="secondary" className="text-xs">
-                            {TYPE_LABELS[
-                              issue.type as keyof typeof TYPE_LABELS
-                            ] ?? issue.type}
-                          </Badge>
+                        <div className="flex items-start gap-2">
+                          <div className="h-3.5 w-3.5 shrink-0 rounded-sm border border-border flex items-center justify-center mt-0.5">
+                            {selectedIssueIndices.has(i) && (
+                              <svg
+                                className="h-2.5 w-2.5 text-primary"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Icon
+                                className={`h-4 w-4 shrink-0 ${severityConf.color}`}
+                              />
+                              <CardTitle className="text-xs flex-1">
+                                {issue.description}
+                              </CardTitle>
+                              <Badge variant="secondary" className="text-xs">
+                                {TYPE_LABELS[
+                                  issue.type as keyof typeof TYPE_LABELS
+                                ] ?? issue.type}
+                              </Badge>
+                            </div>
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent className="px-3 pb-2 pt-0">
@@ -292,7 +325,14 @@ export function ReviewPanel({
         <div className="flex gap-2 pb-3">
           {hasIssues && (
             <Button
-              onClick={onRewriteAction}
+              onClick={() =>
+                onRewriteAction?.(
+                  selectedIssueIndices.size > 0 &&
+                    selectedIssueIndices.size < review.issues.length
+                    ? Array.from(selectedIssueIndices)
+                    : undefined,
+                )
+              }
               disabled={isRewriting || rewriteRunning}
               className="flex-1"
               variant={hasCritical && !hasRewrite ? "destructive" : "outline"}
@@ -305,12 +345,18 @@ export function ReviewPanel({
               ) : hasRewrite ? (
                 <>
                   <RefreshCwIcon className="h-4 w-4 mr-1" />
-                  Viết lại khác
+                  {selectedIssueIndices.size > 0 &&
+                  selectedIssueIndices.size < review.issues.length
+                    ? `Viết lại (${selectedIssueIndices.size} vấn đề)`
+                    : "Viết lại khác"}
                 </>
               ) : (
                 <>
                   <PenLineIcon className="h-4 w-4 mr-1" />
-                  Viết lại
+                  {selectedIssueIndices.size > 0 &&
+                  selectedIssueIndices.size < review.issues.length
+                    ? `Viết lại (${selectedIssueIndices.size} vấn đề)`
+                    : "Viết lại"}
                 </>
               )}
             </Button>

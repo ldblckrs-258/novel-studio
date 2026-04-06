@@ -30,7 +30,7 @@ export async function saveGeneratedChapter(options: {
   const finalContent =
     rewriteResult?.status === "completed" && rewriteResult.output
       ? rewriteResult.output
-      : writerResult?.output ?? "";
+      : (writerResult?.output ?? "");
 
   if (!finalContent) throw new Error("No content to save");
 
@@ -71,6 +71,35 @@ export async function saveGeneratedChapter(options: {
     status: "saved",
     updatedAt: now,
   });
+
+  // Persist non-suggestion review issues for cross-session context memory
+  const reviewResult = await db.writingStepResults
+    .where("[sessionId+role]")
+    .equals([sessionId, "review"])
+    .first();
+  if (reviewResult?.output) {
+    try {
+      const reviewOutput = JSON.parse(reviewResult.output) as {
+        issues: Array<{ type: string; severity: string; description: string }>;
+      };
+      const newIssues = reviewOutput.issues
+        .filter((i) => i.severity !== "suggestion")
+        .map((i) => ({
+          chapterOrder: chapterPlan.chapterOrder,
+          type: i.type,
+          description: i.description,
+        }));
+      if (newIssues.length > 0) {
+        const novel = await db.novels.get(novelId);
+        const existing = novel?.reviewIssues ?? [];
+        // Keep last 20 issues total (rolling window)
+        const merged = [...existing, ...newIssues].slice(-20);
+        await db.novels.update(novelId, { reviewIssues: merged });
+      }
+    } catch {
+      // Non-critical — don't fail save if issue persistence fails
+    }
+  }
 
   return chapterId;
 }

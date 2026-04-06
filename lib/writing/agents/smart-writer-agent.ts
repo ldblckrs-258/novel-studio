@@ -1,13 +1,17 @@
 import { createNovelReadTools } from "@/lib/ai/novel-read-tools";
 import { withGlobalInstruction } from "@/lib/ai/system-prompt";
+import { db } from "@/lib/db";
 import { appendUserInstructionToPrompt } from "@/lib/writing/append-user-instruction";
 import {
   getSmartWriterToolLabelVi,
   SMART_WRITER_WRITING_LABEL_VI,
 } from "@/lib/writing/smart-writer-tool-labels";
-import { db } from "@/lib/db";
 import { stepCountIs, streamText } from "ai";
-import type { AgentConfig, ContextAgentOutput, OutlineAgentOutput } from "../types";
+import type {
+  AgentConfig,
+  ContextAgentOutput,
+  OutlineAgentOutput,
+} from "../types";
 
 function ellipsis(text: string, maxChars: number): string {
   return text.length > maxChars ? text.slice(0, maxChars) + "…" : text;
@@ -30,10 +34,18 @@ export async function runSmartWriterAgent(
 ): Promise<string> {
   const { novelId, chapterOrder, contextOutput, outline } = input;
 
-  const chapterPlan = await db.chapterPlans
-    .where("[novelId+chapterOrder]")
-    .equals([novelId, chapterOrder])
-    .first();
+  const [chapterPlan, allCharacters] = await Promise.all([
+    db.chapterPlans
+      .where("[novelId+chapterOrder]")
+      .equals([novelId, chapterOrder])
+      .first(),
+    db.characters.where("novelId").equals(novelId).toArray(),
+  ]);
+
+  const characterNameList =
+    allCharacters.length > 0
+      ? allCharacters.map((c) => `${c.name} (${c.role})`).join(", ")
+      : "(chưa có nhân vật)";
 
   const directionsBlock =
     chapterPlan && chapterPlan.directions.length > 0
@@ -49,7 +61,10 @@ export async function runSmartWriterAgent(
     `Sự kiện trước đó (rút gọn): ${ellipsis(contextOutput.previousEvents, 1200)}`,
     `Tiến trình cốt truyện: ${contextOutput.plotProgress}`,
     `Tuyến chưa giải quyết: ${unresolved}`,
-    `Trạng thái nhân vật (rút gọn): ${contextOutput.characterStates.slice(0, 8).map((c) => `${c.name}: ${c.currentState}`).join("; ")}${contextOutput.characterStates.length > 8 ? "…" : ""}`,
+    `Trạng thái nhân vật (rút gọn): ${contextOutput.characterStates
+      .slice(0, 8)
+      .map((c) => `${c.name}: ${c.currentState}`)
+      .join("; ")}${contextOutput.characterStates.length > 8 ? "…" : ""}`,
     `Thế giới (rút gọn): ${ellipsis(contextOutput.worldState, 800)}`,
   ].join("\n");
 
@@ -76,6 +91,15 @@ Số từ: ~${s.wordCountTarget} từ`,
   const baseUser = `Viết chương truyện "${outline.chapterTitle}" (chương thứ ${chapterOrder} trong kế hoạch).
 
 Bạn có các công cụ chỉ đọc để tra cứu tiểu thuyết (nhân vật, chương trước, thế giới, tìm kiếm). Hãy gọi công cụ khi cần để đảm bảo tên, chi tiết và mạch truyện khớp dữ liệu gốc — không bịa thiết lập trái với DB.
+
+${(() => {
+  const sceneCount = outline.scenes.length;
+  return sceneCount > 0
+    ? `Bạn có tổng cộng ~${maxToolSteps} lần gọi công cụ. Phân bổ hợp lý (~${Math.ceil(maxToolSteps / sceneCount)} lần/phân cảnh) để đủ tra cứu trước khi viết.\n`
+    : "";
+})()}
+## Danh sách nhân vật (đã tải sẵn — dùng đúng tên này)
+${characterNameList}
 
 ## Tóm tắt nhanh (bootstrap — có thể thiếu chi tiết; dùng công cụ để bổ sung)
 ${contextSummary}

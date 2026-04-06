@@ -3,18 +3,18 @@ import {
   isWebGpuInferenceProviderId,
 } from "@/lib/ai/api-inference";
 import { resolveStep } from "@/lib/ai/resolve-step";
-import { db } from "@/lib/db";
 import type { WritingAgentRole } from "@/lib/db";
-import { getDefaultPrompt } from "./prompts";
-import { buildWritingContext } from "./context-builder";
+import { db } from "@/lib/db";
 import { runContextAgent } from "./agents/context-agent";
 import { runDirectionAgent } from "./agents/direction-agent";
 import { runOutlineAgent } from "./agents/outline-agent";
+import { runReviewAgent } from "./agents/review-agent";
+import { runRewriteAgent } from "./agents/rewrite-agent";
 import { runSmartWriterAgent } from "./agents/smart-writer-agent";
 import { runWriterAgent } from "./agents/writer-agent";
-import { runReviewAgent } from "./agents/review-agent";
+import { buildWritingContext } from "./context-builder";
+import { getDefaultPrompt } from "./prompts";
 import { buildSyntheticContextOutput } from "./synthetic-context";
-import { runRewriteAgent } from "./agents/rewrite-agent";
 import type {
   AgentConfig,
   ContextAgentOutput,
@@ -74,14 +74,8 @@ async function getAgentConfig(
   // Resolve model: per-step config → default chat model
   const stepModelKey = `${role}Model` as const;
   const stepModelConfig = settings?.[stepModelKey];
-  let model = stepModelConfig
-    ? await resolveStep(stepModelConfig)
-    : undefined;
-  if (
-    !model &&
-    chatSettings?.providerId &&
-    chatSettings?.modelId
-  ) {
+  let model = stepModelConfig ? await resolveStep(stepModelConfig) : undefined;
+  if (!model && chatSettings?.providerId && chatSettings?.modelId) {
     model = await resolveStep({
       providerId: chatSettings.providerId,
       modelId: chatSettings.modelId,
@@ -143,7 +137,7 @@ export async function repairSessionIfWriterOutputEmpty(
   if (
     !writerRes ||
     writerRes.status !== "completed" ||
-    !!(writerRes.output?.trim())
+    !!writerRes.output?.trim()
   ) {
     return;
   }
@@ -180,7 +174,7 @@ async function clearInterruptedStepResult(
   if (
     role === "writer" &&
     existing.status === "completed" &&
-    !(existing.output?.trim())
+    !existing.output?.trim()
   ) {
     await db.writingStepResults.delete(existing.id);
   }
@@ -230,7 +224,8 @@ async function writeStepResult(
       status,
       output: output ?? existing.output,
       error,
-      completedAt: status === "completed" || status === "error" ? now : undefined,
+      completedAt:
+        status === "completed" || status === "error" ? now : undefined,
     });
   } else {
     await db.writingStepResults.add({
@@ -317,6 +312,7 @@ export async function runWritingPipeline(
   });
 
   let currentStep = session.currentStep;
+  let autoRetryCount = 0;
 
   // ── Step loop ─────────────────────────────────────────────
   while (currentStep) {
@@ -343,7 +339,7 @@ export async function runWritingPipeline(
       if (currentStep === "outline" && !chapterPlan.outline) {
         return "awaiting-input";
       }
-      if (currentStep === "writer" && !(existingResult.output?.trim())) {
+      if (currentStep === "writer" && !existingResult.output?.trim()) {
         await db.writingStepResults.delete(existingResult.id);
         continue;
       }
@@ -432,6 +428,7 @@ export async function runWritingPipeline(
             contextOutput,
             plotArcs,
             configWithUser,
+            chapterPlan.chapterOrder,
           );
           await writeStepResult(
             sessionId,
@@ -480,6 +477,7 @@ export async function runWritingPipeline(
               characters: s.characters,
               location: s.location,
               mood: s.mood,
+              keyEvents: s.keyEvents,
             })),
             title: outlineOutput.chapterTitle,
             updatedAt: new Date(),
@@ -606,6 +604,52 @@ export async function runWritingPipeline(
       }
 
       onStepComplete?.(currentStep);
+
+      // ── Hands-free auto-retry on low review score ──────────
+      if (currentStep === "review" && handsFree) {
+        const reviewJson = await getStepOutput(sessionId, "review");
+        if (reviewJson) {
+          const reviewOutput = JSON.parse(reviewJson) as {
+            overallScore: number;
+            summary: string;
+          };
+          const minScore = settings?.minScoreToAutoAccept ?? 7;
+          const maxRetries = settings?.maxAutoRetries ?? 2;
+          if (
+            reviewOutput.overallScore < minScore &&
+            autoRetryCount < maxRetries
+          ) {
+            autoRetryCount++;
+            const issuesSummary = `Lần thử trước đạt ${reviewOutput.overallScore}/10. Vấn đề: ${reviewOutput.summary} Hãy tránh các vấn đề này trong lần viết lại.`;
+            for (const role of ["outline", "writer", "review"] as const) {
+              const res = await db.writingStepResults
+                .where("[sessionId+role]")
+                .equals([sessionId, role])
+                .first();
+              if (res) await db.writingStepResults.delete(res.id);
+            }
+            await db.chapterPlans.update(session.chapterPlanId, {
+              outline: "",
+              scenes: [],
+              status: "writing",
+              updatedAt: new Date(),
+            });
+            const existingOutlineInstruction =
+              stepUserInstructions?.outline ?? "";
+            if (stepUserInstructions) {
+              stepUserInstructions.outline = existingOutlineInstruction
+                ? `${existingOutlineInstruction}\n${issuesSummary}`
+                : issuesSummary;
+            }
+            currentStep = "outline";
+            await db.writingSessions.update(sessionId, {
+              currentStep: "outline",
+              updatedAt: new Date(),
+            });
+            continue;
+          }
+        }
+      }
     } catch (err) {
       if (abortSignal?.aborted || isAbortLikeError(err)) {
         await clearInterruptedStepResult(sessionId, currentStep);
@@ -616,9 +660,14 @@ export async function runWritingPipeline(
         return "awaiting-input";
       }
 
-      const errorMsg =
-        err instanceof Error ? err.message : "Unknown error";
-      await writeStepResult(sessionId, currentStep, "error", undefined, errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      await writeStepResult(
+        sessionId,
+        currentStep,
+        "error",
+        undefined,
+        errorMsg,
+      );
       await db.writingSessions.update(sessionId, {
         status: "error",
         updatedAt: new Date(),
@@ -652,6 +701,8 @@ export interface RewriteOptions {
   abortSignal?: AbortSignal;
   onChunk?: (text: string) => void;
   userInstruction?: string;
+  /** Indices into review.issues to target. Undefined = rewrite all. */
+  targetIssueIndices?: number[];
 }
 
 /**
@@ -662,7 +713,14 @@ export interface RewriteOptions {
 export async function runRewriteStep(
   options: RewriteOptions,
 ): Promise<"completed" | "error"> {
-  const { novelId, sessionId, abortSignal, onChunk, userInstruction } = options;
+  const {
+    novelId,
+    sessionId,
+    abortSignal,
+    onChunk,
+    userInstruction,
+    targetIssueIndices,
+  } = options;
 
   const writerOutput = await getStepOutput(sessionId, "writer");
   const reviewJson = await getStepOutput(sessionId, "review");
@@ -696,6 +754,7 @@ export async function runRewriteStep(
       review,
       configWithUser,
       onChunk,
+      targetIssueIndices != null ? { targetIssueIndices } : undefined,
     );
 
     await writeStepResult(sessionId, "rewrite", "completed", rewrittenContent);

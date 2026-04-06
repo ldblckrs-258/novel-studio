@@ -1,6 +1,6 @@
-import { db } from "@/lib/db";
 import { estimateTokens } from "@/lib/analysis/token-budget";
-import type { WritingContextDepth, WritingContext } from "./types";
+import { db } from "@/lib/db";
+import type { WritingContext, WritingContextDepth } from "./types";
 
 const BUDGET_CONFIG: Record<
   WritingContextDepth,
@@ -115,10 +115,20 @@ export async function buildWritingContext(
       if (char.personality) profile += `\nTính cách: ${char.personality}`;
       if (char.motivations) profile += `\nĐộng lực: ${char.motivations}`;
       if (char.goals) profile += `\nMục tiêu: ${char.goals}`;
+      if (char.strengths) profile += `\nĐiểm mạnh: ${char.strengths}`;
+      if (char.weaknesses) profile += `\nĐiểm yếu: ${char.weaknesses}`;
       if (char.relationships?.length) {
         profile += `\nQuan hệ: ${char.relationships.map((r) => `${r.characterName} - ${r.description}`).join("; ")}`;
       }
-      if (arc?.trajectory) profile += `\nHành trình: ${arc.trajectory}`;
+      if (arc?.trajectory) {
+        profile += `\nHành trình: ${arc.trajectory}`;
+        if (arc.developments?.length > 0) {
+          const recent = [...arc.developments]
+            .sort((a, b) => b.chapterOrder - a.chapterOrder)
+            .slice(0, 3);
+          profile += `\nPhát triển gần đây: ${recent.map((d) => `Ch.${d.chapterOrder}: ${d.description}`).join("; ")}`;
+        }
+      }
 
       const tokens = estimateTokens(profile);
       if (charTokens + tokens > config.maxCharacterTokens) {
@@ -135,9 +145,7 @@ export async function buildWritingContext(
 
   // ── Plot arcs ─────────────────────────────────────────────
   if (plotArcs.length > 0) {
-    hashParts.push(
-      ...plotArcs.map((a) => a.updatedAt?.toISOString() ?? a.id),
-    );
+    hashParts.push(...plotArcs.map((a) => a.updatedAt?.toISOString() ?? a.id));
 
     const arcParts: string[] = [];
     let arcTokens = 0;
@@ -156,7 +164,16 @@ export async function buildWritingContext(
         (p) => p.status !== "resolved",
       );
       if (activePoints.length > 0) {
-        arcText += `\nĐiểm mở: ${activePoints.map((p) => p.title).join(", ")}`;
+        arcText += `\nĐiểm mở: ${activePoints
+          .map((p) => {
+            if (p.chapterOrder == null) return p.title;
+            if (p.chapterOrder <= chapterOrder)
+              return `${p.title} [QUÁ HẠN chương ${p.chapterOrder}]`;
+            if (p.chapterOrder <= chapterOrder + 3)
+              return `${p.title} [đến hạn chương ${p.chapterOrder}]`;
+            return p.title;
+          })
+          .join(", ")}`;
       }
 
       const tokens = estimateTokens(arcText);
@@ -199,6 +216,15 @@ export async function buildWritingContext(
     if (planParts.length > 0) {
       parts.push(`## Kế hoạch chương ${chapterOrder}\n${planParts.join("\n")}`);
     }
+  }
+
+  // ── Prior review issues (cross-session memory) ─────────────
+  if (novel.reviewIssues && novel.reviewIssues.length > 0) {
+    const recent = novel.reviewIssues.slice(-5);
+    const issueLines = recent
+      .map((i) => `- Ch.${i.chapterOrder} [${i.type}]: ${i.description}`)
+      .join("\n");
+    parts.push(`## Vấn đề cần tránh (từ chương trước)\n${issueLines}`);
   }
 
   const context = parts.join("\n\n");

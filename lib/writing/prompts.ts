@@ -16,8 +16,16 @@ Mỗi hướng đi cần:
 - **Mô tả** chi tiết hướng phát triển (2-3 câu)
 - **Tác động cốt truyện**: Hướng đi này ảnh hưởng gì đến mạch truyện chính
 - **Nhân vật liên quan**: Những nhân vật sẽ đóng vai trò quan trọng
+- **Loại** (type): Phân loại theo một trong năm loại sau:
+  - \`action\` — Hành động, chiến đấu, đối đầu, chạy trốn
+  - \`character-development\` — Phát triển nội tâm, mối quan hệ, tính cách
+  - \`plot-twist\` — Bất ngờ, tiết lộ, đảo lộn tình huống
+  - \`world-building\` — Khám phá thế giới, hệ thống sức mạnh, địa điểm mới
+  - \`resolution\` — Giải quyết xung đột hoặc điểm cốt truyện đang mở
 
-Đảm bảo các hướng đi đa dạng: có hướng hành động, hướng phát triển nhân vật, hướng giải quyết xung đột, hướng tạo bất ngờ. Mỗi hướng đi phải logic với những gì đã xảy ra trước đó.
+**Quy tắc đa dạng**: Trong tập 3-5 hướng đi, không được có quá 2 hướng cùng loại. Ưu tiên cover nhiều loại khác nhau.
+
+Mỗi hướng đi phải logic với những gì đã xảy ra trước đó.
 
 Trả lời bằng Tiếng Việt.`;
 

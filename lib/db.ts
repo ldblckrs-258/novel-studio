@@ -34,6 +34,12 @@ export interface Novel {
   chaptersAnalyzed?: number;
   totalChapters?: number;
   analysisError?: string;
+  /** Persisted critical/minor review issues from prior chapters for cross-session memory. */
+  reviewIssues?: Array<{
+    chapterOrder: number;
+    type: string;
+    description: string;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -333,8 +339,8 @@ export interface NameFrequency {
 
 // ─── Convert Settings ────────────────────────────────────────
 
-export type { ConvertOptions } from "@/lib/workers/qt-engine.types";
 export { DEFAULT_CONVERT_OPTIONS } from "@/lib/workers/qt-engine.types";
+export type { ConvertOptions } from "@/lib/workers/qt-engine.types";
 
 export interface ConvertSettings {
   id: string; // "convert-settings" singleton
@@ -388,6 +394,7 @@ export interface ChapterPlanScene {
   characters: string[];
   location?: string;
   mood?: string;
+  keyEvents?: string[];
 }
 
 export interface ChapterPlan {
@@ -445,6 +452,10 @@ export interface WritingSettings {
   smartWriterMaxToolSteps?: number;
   /** When true, new sessions run the pipeline hands-free until review completes. */
   noAskingMode?: boolean;
+  /** Minimum review score (0-10) to auto-accept in hands-free mode. Default 7. */
+  minScoreToAutoAccept?: number;
+  /** Max automatic retries from Outline when score is below threshold. Default 2. */
+  maxAutoRetries?: number;
   contextModel?: StepModelConfig;
   directionModel?: StepModelConfig;
   outlineModel?: StepModelConfig;
