@@ -1,19 +1,21 @@
 "use client";
 
-import { GlobalInstructionSettings } from "@/components/global-instruction-settings";
+import { AIConfigPage } from "@/components/ai-config/ai-config-page";
 
 export default function InstructionsPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-8">
-      <div className="mb-8">
+    <div className="flex h-full flex-col">
+      <div className="shrink-0 border-b px-6 py-5">
         <h1 className="font-heading text-2xl font-bold tracking-tight">
-          Chỉ thị chung
+          Cài đặt AI
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Đặt chỉ thị hệ thống áp dụng cho mọi yêu cầu AI.
+          Cấu hình mô hình, nhà cung cấp và system prompt cho từng tính năng AI.
         </p>
       </div>
-      <GlobalInstructionSettings />
-    </main>
+      <div className="min-h-0 flex-1">
+        <AIConfigPage />
+      </div>
+    </div>
   );
 }

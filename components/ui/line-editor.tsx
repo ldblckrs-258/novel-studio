@@ -1,5 +1,6 @@
 "use client";
 
+import { stringToColor, tokenizeXml } from "@/lib/utils/string-to-color";
 import { cn } from "@/lib/utils";
 import {
   memo,
@@ -9,6 +10,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { ScrollbarMarks } from "./scrollbar-marks";
 
@@ -38,6 +40,8 @@ interface LineEditorProps {
   gutterFont?: string;
   /** Highlight ranges (char index + length) rendered as marks in the mirror */
   highlights?: FindHighlight[] | null;
+  /** Colorize XML-like tags using hashed hue per tag name */
+  xmlColors?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -53,6 +57,22 @@ const CONTENT_BASE =
 /* ------------------------------------------------------------------ */
 /*  Rendered lines                                                     */
 /* ------------------------------------------------------------------ */
+
+/** Render a line with XML tag coloring. */
+function renderXmlLine(line: string, isDark: boolean): React.ReactNode {
+  if (!line) return "\u00A0";
+  const tokens = tokenizeXml(line);
+  if (tokens.every((t) => t.type === "text")) return line || "\u00A0";
+  const colorOpts = isDark ? { s: 80, l: 72 } : { s: 70, l: 42 };
+  return tokens.map((token, i) => {
+    if (token.type === "text") return token.value || null;
+    return (
+      <span key={i} style={{ color: stringToColor(token.tagName, colorOpts) }}>
+        {token.value}
+      </span>
+    );
+  });
+}
 
 /** Build highlighted content fragments for a single line. */
 function renderHighlightedLine(
@@ -98,11 +118,15 @@ const RenderedLines = memo(function RenderedLines({
   gutterCls,
   contentCls,
   highlights,
+  xmlColors,
+  isDark,
 }: {
   value: string;
   gutterCls: string;
   contentCls: string;
   highlights?: FindHighlight[] | null;
+  xmlColors?: boolean;
+  isDark?: boolean;
 }) {
   const lines = useMemo(() => value.split("\n"), [value]);
 
@@ -126,7 +150,9 @@ const RenderedLines = memo(function RenderedLines({
           <span className={contentCls}>
             {highlights && highlights.length > 0 && lineOffsets
               ? renderHighlightedLine(line, lineOffsets[i], highlights)
-              : line || "\u00A0"}
+              : xmlColors
+                ? renderXmlLine(line, isDark ?? false)
+                : line || "\u00A0"}
           </span>
         </div>
       ))}
@@ -147,10 +173,27 @@ export function LineEditor({
   contentFont = "text-sm leading-5",
   gutterFont = "text-xs leading-5",
   highlights,
+  xmlColors,
 }: LineEditorProps) {
   const mirrorRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const deferredValue = useDeferredValue(value);
+
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== "undefined"
+      ? document.documentElement.classList.contains("dark")
+      : false,
+  );
+  useEffect(() => {
+    const update = () =>
+      setIsDark(document.documentElement.classList.contains("dark"));
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   const gutterCls = cn(GUTTER_BASE, gutterFont);
   const contentCls = cn(CONTENT_BASE, contentFont);
@@ -191,6 +234,8 @@ export function LineEditor({
           value={value}
           gutterCls={gutterCls}
           contentCls={contentCls}
+          xmlColors={xmlColors}
+          isDark={isDark}
         />
       </div>
     );
@@ -208,6 +253,8 @@ export function LineEditor({
             gutterCls={gutterCls}
             contentCls={contentCls}
             highlights={highlights}
+            xmlColors={xmlColors}
+            isDark={isDark}
           />
         </div>
       </div>
