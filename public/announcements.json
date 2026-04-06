@@ -1,42 +1,12 @@
 {
   "announcements": [
     {
-      "id": "sync-and-auto-write-enhancements-2026-04-05",
+      "id": "version-0.11.1-07.04.2026",
       "enabled": true,
       "type": "info",
-      "content": "v0.11.0 - **Đồng bộ dữ liệu & Nâng cấp Auto-Write**: Lưu và đồng bộ thư viện giữa các thiết bị. Chế độ AI viết thông minh, chạy tự động. [Xem chi tiết](/changelog)",
-      "bgColor": "bg-violet-500/10 dark:bg-violet-500/15",
-      "textColor": "text-violet-700 dark:text-violet-300"
-    },
-    {
-      "id": "fix-bugs-and-enhancements-2026-04-03",
-      "enabled": false,
-      "type": "info",
-      "content": "v0.10 - **Viết AI và nâng cấp Chat**: Ra mắt tính năng viết truyện tự động và nâng cấp công cụ chat AI. [Xem chi tiết](/changelog)",
-      "bgColor": "bg-emerald-500/10 dark:bg-emerald-500/15",
-      "textColor": "text-emerald-700 dark:text-emerald-300"
-    },
-    {
-      "id": "auto-write-feature-2026-04-02",
-      "enabled": false,
-      "type": "info",
-      "content": "v0.10.0 - Tính năng mới: **Viết truyện tự động với AI** — pipeline 5 bước từ bối cảnh đến đánh giá, tùy biến model và prompt cho từng bước. [Xem chi tiết](/changelog)",
-      "bgColor": "bg-rose-500/10 dark:bg-rose-500/15",
-      "textColor": "text-rose-700 dark:text-rose-300"
-    },
-    {
-      "id": "tts-feature-2026-03-31",
-      "enabled": false,
-      "type": "info",
-      "content": "v0.9.0 - Tính năng mới: **Đọc truyện bằng giọng nói** — nghe đọc ngay trong trang đọc với 6 nhà cung cấp giọng nói. [Xem chi tiết](/changelog)",
-      "bgColor": "bg-violet-500/10 dark:bg-violet-500/15",
-      "textColor": "text-violet-700 dark:text-violet-300"
-    },
-    {
-      "id": "beta-notice-2026",
-      "enabled": false,
-      "type": "info",
-      "content": "**Novel Studio** đang trong giai đoạn phát triển. Dữ liệu được lưu trữ cục bộ trên trình duyệt — hãy thường xuyên [sao lưu dữ liệu](/settings) để tránh mất mát."
+      "content": "v0.11.1 - Trang chủ mới, Scrape truyện từ UUKansu, Cài đặt AI & Cải thiện Auto-Write. [Xem chi tiết](/changelog)",
+      "bgColor": "bg-orange-500/10 dark:bg-orange-500/15",
+      "textColor": "text-orange-700 dark:text-orange-300"
     }
   ]
 }

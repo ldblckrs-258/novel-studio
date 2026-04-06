@@ -65,6 +65,43 @@ export const CATEGORY_META: Record<
 
 export const changelog: ChangelogRelease[] = [
   {
+    version: "0.11.1",
+    date: "2026-04-07",
+    title: "Trang chủ mới, Cài đặt AI & Cải thiện Auto-Write",
+    summary:
+      "Ra mắt trang chủ mới giới thiệu ứng dụng. Bổ sung trang cài đặt AI chung giúp quản lý dễ dàng hơn. Cải thiện đáng kể chất lượng nội dung sinh ra từ Auto-Write pipeline.",
+    changes: [
+      {
+        category: "feature",
+        description: "Trang chủ giới thiệu (Landing Page)",
+        details:
+          "Ra mắt trang chủ mới được thiết kế hiện đại, giới thiệu chi tiết các tính năng, điểm nhấn của ứng dụng.",
+        tags: ["giao diện", "trang chủ"],
+      },
+      {
+        category: "feature",
+        description: "Trang cài đặt AI chung",
+        details:
+          "Gộp tất cả các thiết lập liên quan đến provider, model và hướng dẫn chung về một nơi để dễ dàng cấu hình toàn cục.",
+        tags: ["cài đặt", "AI"],
+      },
+      {
+        category: "feature",
+        description: "Scrape truyện từ UUKansu",
+        details:
+          "Triển khai scraper adapter mỡi hỗ trợ lấy nội dung truyện từ UUKansu.",
+        tags: ["scrape", "UUKansu"],
+      },
+      {
+        category: "improvement",
+        description: "Cải thiện chất lượng Auto-Write Pipeline",
+        details:
+          "Tối ưu hóa quy trình tự động viết, giúp tác phẩm văn học được tạo ra mượt mà, tự nhiên và bám sát cốt truyện tốt hơn.",
+        tags: ["viết truyện", "AI", "auto-write"],
+      },
+    ],
+  },
+  {
     version: "0.11.0",
     date: "2026-04-05",
     title: "Đồng bộ & Nâng cấp Auto-Write",
