@@ -17,9 +17,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { updateChapterPlan } from "@/lib/hooks";
+import { deleteChapterPlan, updateChapterPlan } from "@/lib/hooks";
 import type { ChapterPlan, ChapterPlanScene } from "@/lib/db";
 import { PlusIcon, Trash2Icon } from "lucide-react";
+import { toast } from "sonner";
 import { useEffect, useState } from "react";
 
 function SceneEditor({
@@ -307,18 +308,35 @@ export function EditChapterPlanDialog({
           </div>
         </div>
 
-        <DialogFooter className="px-6 py-3 border-t m-0">
+        <DialogFooter className="px-6 py-3 border-t m-0 flex !justify-between">
           <Button
             type="button"
-            variant="outline"
-            onClick={() => onOpenChangeAction(false)}
+            variant="ghost"
+            size="sm"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
             disabled={saving}
+            onClick={async () => {
+              await deleteChapterPlan(plan.id);
+              toast.success(`Đã xóa chương ${plan.chapterOrder}`);
+              onOpenChangeAction(false);
+            }}
           >
-            Hủy
+            <Trash2Icon className="h-3.5 w-3.5 mr-1" />
+            Xóa
           </Button>
-          <Button type="button" onClick={handleSave} disabled={saving}>
-            {saving ? "Đang lưu..." : "Lưu"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChangeAction(false)}
+              disabled={saving}
+            >
+              Hủy
+            </Button>
+            <Button type="button" onClick={handleSave} disabled={saving}>
+              {saving ? "Đang lưu..." : "Lưu"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

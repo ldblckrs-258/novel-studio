@@ -1,6 +1,6 @@
 import { generateStructured } from "@/lib/ai/structured";
 import { withGlobalInstruction } from "@/lib/ai/system-prompt";
-import type { PlotArc } from "@/lib/db";
+import type { ChapterPlan, PlotArc } from "@/lib/db";
 import { appendUserInstructionToPrompt } from "@/lib/writing/append-user-instruction";
 import { directionOutputSchema } from "../schemas";
 import type {
@@ -14,33 +14,46 @@ export async function runDirectionAgent(
   plotArcs: PlotArc[],
   config: AgentConfig,
   chapterOrder?: number,
+  chapterPlan?: ChapterPlan,
 ): Promise<DirectionAgentOutput> {
   const contextSummary = [
     `Sự kiện trước đó: ${contextOutput.previousEvents}`,
     `Tiến trình cốt truyện: ${contextOutput.plotProgress}`,
-    `Tuyến chưa giải quyết: ${contextOutput.unresolvedThreads.join("; ")}`,
-    `Trạng thái nhân vật: ${contextOutput.characterStates.map((c) => `${c.name}: ${c.currentState}`).join("; ")}`,
-    `Thế giới: ${contextOutput.worldState}`,
+    `Tuyến chưa giải quyết: ${(contextOutput.unresolvedThreads ?? []).join("; ")}`,
+    `Trạng thái nhân vật: ${(contextOutput.characterStates ?? []).map((c) => `${c.name}: ${c.currentState}`).join("; ")}`,
   ].join("\n\n");
 
+  // Only include active arcs with relevant plot points
   const arcSummary =
     plotArcs.length > 0
-      ? `\n\nMạch truyện:\n${plotArcs.map((a) => `- ${a.title} (${a.type}, ${a.status}): ${a.description}`).join("\n")}`
+      ? plotArcs.map((a) => {
+          const relevantPoints = a.plotPoints
+            .filter((p) => p.status !== "resolved")
+            .slice(0, 3);
+          const pointsText = relevantPoints.length > 0
+            ? ` | Điểm mốc sắp tới: ${relevantPoints.map((p) => p.title).join(", ")}`
+            : "";
+          return `- ${a.title} (${a.type}): ${a.description}${pointsText}`;
+        }).join("\n")
       : "";
 
-  const chapterNote =
-    chapterOrder != null
-      ? `\n\nĐang viết chương ${chapterOrder}. Các điểm cốt truyện đánh dấu [QUÁ HẠN] hoặc [đến hạn] nên được ưu tiên giải quyết trong các hướng đi đề xuất.`
-      : "";
+  // Include chapter plan context if available
+  const chapterPlanContext = chapterPlan
+    ? [
+        chapterPlan.title ? `Tiêu đề chương: ${chapterPlan.title}` : "",
+        chapterPlan.directions?.length > 0
+          ? `Hướng đi từ kế hoạch: ${chapterPlan.directions.join("; ")}`
+          : "",
+      ].filter(Boolean).join("\n")
+    : "";
 
-  const basePrompt = `<context_summary>
+  const basePrompt = `${chapterPlanContext ? `<chapter_plan priority="cao — các hướng đi phải nhất quán với kế hoạch này">\nChương ${chapterOrder ?? "?"}.\n${chapterPlanContext}\n</chapter_plan>\n\n` : ""}<context_summary note="tóm tắt — chỉ dùng làm nền, không để chi phối hướng đi">
 ${contextSummary}
 </context_summary>
-${arcSummary ? `\n<plot_arcs>\n${arcSummary.trim()}\n</plot_arcs>` : ""}
-${chapterNote ? `\n<chapter_note>\n${chapterNote.trim()}\n</chapter_note>` : ""}
+${arcSummary ? `\n<active_arcs note="chỉ mạch đang hoạt động">\n${arcSummary}\n</active_arcs>` : ""}
 
 <request>
-Đề xuất 3–5 hướng đi cho chương tiếp theo. Mỗi hướng cần có id duy nhất. Trường recommendedOptionIds phải là 1–3 id trong danh sách options mà bạn cho là ưu tiên nhất (thứ tự từ quan trọng đến phụ).
+Đề xuất 3–5 hướng đi cho chương ${chapterOrder ?? "tiếp theo"}.${chapterPlanContext ? " Ưu tiên phát triển theo kế hoạch chương đã có." : ""} Mỗi hướng cần có id duy nhất. Trường recommendedOptionIds phải là 1–3 id ưu tiên nhất.
 </request>`;
 
   const { object } = await generateStructured<DirectionAgentOutput>({

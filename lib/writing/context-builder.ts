@@ -207,7 +207,7 @@ export async function buildWritingContext(
 
   if (chapterPlan) {
     const planParts: string[] = [];
-    if (chapterPlan.directions.length > 0) {
+    if (chapterPlan.directions?.length > 0) {
       planParts.push(`Hướng đi: ${chapterPlan.directions.join("; ")}`);
     }
     if (chapterPlan.outline) {

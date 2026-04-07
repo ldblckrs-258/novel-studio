@@ -11,10 +11,10 @@ export async function runReviewAgent(
 ): Promise<ReviewAgentOutput> {
   const contextSummary = [
     `Sự kiện trước đó: ${contextOutput.previousEvents}`,
-    `Trạng thái nhân vật: ${contextOutput.characterStates.map((c) => `${c.name}: ${c.currentState}`).join("; ")}`,
+    `Trạng thái nhân vật: ${(contextOutput.characterStates ?? []).map((c) => `${c.name}: ${c.currentState}`).join("; ")}`,
     `Thế giới: ${contextOutput.worldState}`,
     `Tiến trình cốt truyện: ${contextOutput.plotProgress}`,
-    `Tuyến chưa giải quyết: ${contextOutput.unresolvedThreads.join("; ")}`,
+    `Tuyến chưa giải quyết: ${(contextOutput.unresolvedThreads ?? []).join("; ")}`,
   ].join("\n");
 
   const basePrompt = `<established_context>

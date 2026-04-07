@@ -16,7 +16,7 @@ export async function runOutlineAgent(
 ): Promise<OutlineAgentOutput> {
   const contextSummary = [
     `Sự kiện trước đó: ${contextOutput.previousEvents}`,
-    `Trạng thái nhân vật: ${contextOutput.characterStates.map((c) => `${c.name}: ${c.currentState}`).join("; ")}`,
+    `Trạng thái nhân vật: ${(contextOutput.characterStates ?? []).map((c) => `${c.name}: ${c.currentState}`).join("; ")}`,
     `Thế giới: ${contextOutput.worldState}`,
   ].join("\n\n");
 

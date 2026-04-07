@@ -38,7 +38,7 @@ export async function runWriterAgent(
   }
 
   const directionsBlock =
-    chapterPlan && chapterPlan.directions.length > 0
+    chapterPlan && chapterPlan.directions?.length > 0
       ? chapterPlan.directions.map((d, i) => `${i + 1}. ${d}`).join("\n")
       : "";
 
@@ -51,7 +51,7 @@ export async function runWriterAgent(
     `Sự kiện trước đó: ${contextOutput.previousEvents}`,
     `Tiến trình cốt truyện: ${contextOutput.plotProgress}`,
     `Tuyến chưa giải quyết: ${unresolved}`,
-    `Trạng thái nhân vật: ${contextOutput.characterStates.map((c) => `${c.name}: ${c.currentState}`).join("; ")}`,
+    `Trạng thái nhân vật: ${(contextOutput.characterStates ?? []).map((c) => `${c.name}: ${c.currentState}`).join("; ")}`,
     `Thế giới (tóm tắt): ${contextOutput.worldState}`,
   ].join("\n");
 
@@ -67,9 +67,9 @@ ${directionsBlock}
       (s, i) =>
         `### Phân cảnh ${i + 1}: ${s.title}
 Tóm tắt: ${s.summary}
-Nhân vật: ${s.characters.join(", ")}
+Nhân vật: ${(s.characters ?? []).join(", ")}
 ${s.location ? `Địa điểm: ${s.location}` : ""}
-Sự kiện: ${s.keyEvents.join("; ")}
+Sự kiện: ${(s.keyEvents ?? []).join("; ")}
 Tâm trạng: ${s.mood}
 Số từ: ~${s.wordCountTarget} từ`,
     )

@@ -32,6 +32,7 @@ import {
   savePlotArcs,
   saveWorldBuilding,
 } from "@/lib/writing/auto-generate";
+import { createChapterPlan } from "@/lib/hooks/use-chapter-plans";
 import {
   BookOpenIcon,
   CheckCircle2Icon,
@@ -237,6 +238,25 @@ export function SetupWizard({
     wizardInstructionKey,
     setStepUserInstruction,
   ]);
+
+  const handleSkipPlans = useCallback(async () => {
+    const existing = await db.chapterPlans
+      .where("novelId")
+      .equals(novelId)
+      .count();
+    if (existing > 0) return; // already have plans
+    for (let i = 1; i <= 5; i++) {
+      await createChapterPlan({
+        novelId,
+        chapterOrder: i,
+        directions: [],
+        outline: "",
+        scenes: [],
+        status: "planned",
+      });
+    }
+    toast.success("Đã tạo 5 chương trống");
+  }, [novelId]);
 
   const handleNext = useCallback(() => {
     if (currentStepIndex < STEPS.length - 1) {
@@ -486,6 +506,17 @@ export function SetupWizard({
           >
             <XIcon className="h-3 w-3 mr-1" />
             Hủy
+          </Button>
+        )}
+
+        {currentStep === "plans" && !isGenerating && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() => void handleSkipPlans()}
+          >
+            Bỏ qua — tạo 5 chương trống
           </Button>
         )}
       </div>

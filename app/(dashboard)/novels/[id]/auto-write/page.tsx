@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { WritingAgentRole } from "@/lib/db";
 import { db } from "@/lib/db";
 import {
+  createChapterPlan,
   createWritingSession,
   getOrCreateWritingSettings,
   resetWritingSessionProgress,
@@ -70,6 +71,7 @@ import { toast } from "sonner";
 
 import { ContextStepPanel } from "@/components/writing/context-step-panel";
 import { ChapterPreview } from "@/components/writing/chapter-preview";
+import { DirectionPreFilter } from "@/components/writing/direction-pre-filter";
 import { DirectionSelector } from "@/components/writing/direction-selector";
 import { IdeaForm, type IdeaFormData } from "@/components/writing/idea-form";
 import { NovelSetup } from "@/components/writing/novel-setup";
@@ -264,11 +266,16 @@ export default function AutoWritePage() {
         if (v) stepUserInstructions[role] = v;
       }
 
+      const { directionArcIds, directionCharacterIds } =
+        useWritingPipelineStore.getState();
+
       const result = await runWritingPipeline({
         novelId,
         sessionId,
         abortSignal: controller.signal,
         stepUserInstructions,
+        directionArcIds,
+        directionCharacterIds,
         onStepStart: (role) => {
           if (role === "context") setActivePanel("context");
           if (role === "writer") setActivePanel("content");
@@ -876,16 +883,35 @@ export default function AutoWritePage() {
                 {/* Generate more chapter plans button */}
               </ScrollArea>
               {chapterPlans && chapterPlans.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setGenerateMorePlansOpen(true)}
-                  disabled={isGeneratingPlans}
-                  className="my-2 mx-2 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors disabled:opacity-50"
-                >
-                  {isGeneratingPlans
-                    ? "Đang tạo..."
-                    : "+ Tạo thêm kế hoạch chương"}
-                </button>
+                <div className="flex gap-1 mx-2 my-2">
+                  <button
+                    type="button"
+                    onClick={() => setGenerateMorePlansOpen(true)}
+                    disabled={isGeneratingPlans}
+                    className="flex-1 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors disabled:opacity-50"
+                  >
+                    {isGeneratingPlans
+                      ? "Đang tạo..."
+                      : "+ Tạo thêm (AI)"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const nextOrder = Math.max(...chapterPlans.map((p) => p.chapterOrder)) + 1;
+                      await createChapterPlan({
+                        novelId,
+                        chapterOrder: nextOrder,
+                        directions: [],
+                        outline: "",
+                        scenes: [],
+                        status: "planned",
+                      });
+                    }}
+                    className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
+                  >
+                    + Thêm trống
+                  </button>
+                </div>
               )}
             </div>
           </ResizablePanel>
@@ -940,28 +966,31 @@ export default function AutoWritePage() {
                       (sessionNeedsResume &&
                         activeSession?.currentStep === "direction" &&
                         resultMap.get("direction")?.status !== "completed") ? (
-                        <PipelineStepConfig
-                          novelId={novelId}
-                          role="direction"
-                          instructionKey="direction"
-                          title={
-                            directionOutput
-                              ? "Tạo lại hướng đi"
-                              : "Đề xuất hướng đi"
-                          }
-                          description={
-                            directionOutput
-                              ? "Chỉnh mô hình, yêu cầu và system prompt, sau đó chạy AI."
-                              : "Cấu hình bước này rồi chạy để AI đề xuất các hướng đi."
-                          }
-                          runLabel={
-                            directionOutput
-                              ? "Chạy AI"
-                              : "Chạy pipeline (tiếp tục)"
-                          }
-                          onRun={() => void handleStartPipeline()}
-                          disabled={isRunning}
-                        />
+                        <div className="space-y-4 max-w-lg mx-auto">
+                          <DirectionPreFilter novelId={novelId} />
+                          <PipelineStepConfig
+                            novelId={novelId}
+                            role="direction"
+                            instructionKey="direction"
+                            title={
+                              directionOutput
+                                ? "Tạo lại hướng đi"
+                                : "Đề xuất hướng đi"
+                            }
+                            description={
+                              directionOutput
+                                ? "Chỉnh mô hình, yêu cầu và system prompt, sau đó chạy AI."
+                                : "Cấu hình bước này rồi chạy để AI đề xuất các hướng đi."
+                            }
+                            runLabel={
+                              directionOutput
+                                ? "Chạy AI"
+                                : "Chạy pipeline (tiếp tục)"
+                            }
+                            onRun={() => void handleStartPipeline()}
+                            disabled={isRunning}
+                          />
+                        </div>
                       ) : directionOutput ? (
                         <DirectionSelector
                           options={directionOutput.options}

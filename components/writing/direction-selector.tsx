@@ -46,8 +46,11 @@ export function DirectionSelector({
 }) {
   const recommended = new Set(recommendedOptionIds ?? []);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [customDirection, setCustomDirection] = useState("");
+  const [customDirections, setCustomDirections] = useState<DirectionOption[]>([]);
+  const [customInput, setCustomInput] = useState("");
   const [showCustom, setShowCustom] = useState(false);
+
+  const allOptions = [...options, ...customDirections];
 
   const toggleOption = (id: string) => {
     setSelected((prev) => {
@@ -58,13 +61,28 @@ export function DirectionSelector({
     });
   };
 
+  const addCustomDirection = () => {
+    const text = customInput.trim();
+    if (!text) return;
+    const id = `custom-${Date.now()}`;
+    const newDir: DirectionOption = {
+      id,
+      title: "Tùy chỉnh",
+      description: text,
+      characters: [],
+      plotImpact: "",
+      type: "character-development",
+    };
+    setCustomDirections((prev) => [...prev, newDir]);
+    setSelected((prev) => new Set(prev).add(id));
+    setCustomInput("");
+    setShowCustom(false);
+  };
+
   const handleConfirm = () => {
-    const directions = options
+    const directions = allOptions
       .filter((o) => selected.has(o.id))
       .map((o) => `${o.title}: ${o.description}`);
-    if (customDirection.trim()) {
-      directions.push(customDirection.trim());
-    }
     if (directions.length === 0) return;
     onConfirm(directions);
   };
@@ -88,7 +106,7 @@ export function DirectionSelector({
       </div>
 
       <div className="grid gap-3">
-        {options.map((option) => {
+        {allOptions.map((option) => {
           const typeConf = option.type
             ? DIRECTION_TYPE_LABELS[option.type]
             : undefined;
@@ -167,12 +185,34 @@ export function DirectionSelector({
       </div>
 
       {showCustom ? (
-        <Textarea
-          placeholder="Mô tả hướng đi tùy chỉnh..."
-          value={customDirection}
-          onChange={(e) => setCustomDirection(e.target.value)}
-          rows={3}
-        />
+        <div className="space-y-2">
+          <Textarea
+            placeholder="Mô tả hướng đi tùy chỉnh..."
+            value={customInput}
+            onChange={(e) => setCustomInput(e.target.value)}
+            rows={3}
+          />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={addCustomDirection}
+              disabled={!customInput.trim()}
+            >
+              <PlusIcon className="h-3.5 w-3.5 mr-1" />
+              Thêm
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setShowCustom(false);
+                setCustomInput("");
+              }}
+            >
+              Hủy
+            </Button>
+          </div>
+        </div>
       ) : (
         <Button
           variant="outline"
@@ -187,10 +227,10 @@ export function DirectionSelector({
 
       <Button
         onClick={handleConfirm}
-        disabled={isLoading || (selected.size === 0 && !customDirection.trim())}
+        disabled={isLoading || selected.size === 0}
         className="w-full"
       >
-        Xác nhận ({selected.size + (customDirection.trim() ? 1 : 0)} hướng đi)
+        Xác nhận ({selected.size} hướng đi)
       </Button>
     </div>
   );

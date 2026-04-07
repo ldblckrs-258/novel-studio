@@ -8,6 +8,7 @@ import {
   FolderOpenIcon,
 } from "lucide-react";
 import { useState } from "react";
+import { ScrollArea } from "../ui/scroll-area";
 import type { ConfigItemId, TreeFolder, TreeLeaf, TreeNode } from "./types";
 import { TREE_STRUCTURE } from "./types";
 
@@ -132,7 +133,7 @@ function TreeNodeItem({
 
 export function ConfigTree({ selected, onSelect }: ConfigTreeProps) {
   return (
-    <nav className="space-y-0.5 p-2">
+    <ScrollArea className="space-y-0.5 p-2 h-[calc(100svh-188px)]">
       {TREE_STRUCTURE.map((node) => (
         <TreeNodeItem
           key={node.id}
@@ -142,6 +143,6 @@ export function ConfigTree({ selected, onSelect }: ConfigTreeProps) {
           onSelect={onSelect}
         />
       ))}
-    </nav>
+    </ScrollArea>
   );
 }

@@ -13,6 +13,10 @@ interface WritingPipelineState {
   stepUserInstructions: Record<string, string>;
   /** When set, show pipeline step config UI before running this role (after re-run). */
   pipelinePreRunRole: WritingAgentRole | null;
+  /** Pre-selected arc IDs for direction generation (empty = all active arcs). */
+  directionArcIds: string[];
+  /** Pre-selected character IDs for direction generation (empty = all characters). */
+  directionCharacterIds: string[];
   /** Incremented after a successful standalone rewrite; ReviewPanel opens compare view when it sees a new value. */
   reviewCompareFocusNonce: number;
 
@@ -29,6 +33,8 @@ interface WritingPipelineState {
   clearWriterActivityLabel: () => void;
   setStepUserInstruction: (key: string, value: string) => void;
   setPipelinePreRunRole: (role: WritingAgentRole | null) => void;
+  setDirectionArcIds: (ids: string[]) => void;
+  setDirectionCharacterIds: (ids: string[]) => void;
   requestReviewCompareFocus: () => void;
   reset: () => void;
 }
@@ -43,6 +49,8 @@ export const useWritingPipelineStore = create<WritingPipelineState>(
     writerActivityLabel: "",
     stepUserInstructions: {},
     pipelinePreRunRole: null,
+    directionArcIds: [],
+    directionCharacterIds: [],
     reviewCompareFocusNonce: 0,
 
     startPipeline: (sessionId) => {
@@ -99,6 +107,9 @@ export const useWritingPipelineStore = create<WritingPipelineState>(
 
     setPipelinePreRunRole: (role) => set({ pipelinePreRunRole: role }),
 
+    setDirectionArcIds: (ids) => set({ directionArcIds: ids }),
+    setDirectionCharacterIds: (ids) => set({ directionCharacterIds: ids }),
+
     requestReviewCompareFocus: () =>
       set((s) => ({ reviewCompareFocusNonce: s.reviewCompareFocusNonce + 1 })),
 
@@ -112,6 +123,8 @@ export const useWritingPipelineStore = create<WritingPipelineState>(
         writerActivityLabel: "",
         stepUserInstructions: {},
         pipelinePreRunRole: null,
+        directionArcIds: [],
+        directionCharacterIds: [],
         reviewCompareFocusNonce: 0,
       }),
   }),

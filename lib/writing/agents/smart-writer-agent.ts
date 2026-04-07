@@ -52,7 +52,7 @@ export async function runSmartWriterAgent(
       : "(chưa có nhân vật)";
 
   const directionsBlock =
-    chapterPlan && chapterPlan.directions.length > 0
+    chapterPlan && chapterPlan.directions?.length > 0
       ? chapterPlan.directions.map((d, i) => `${i + 1}. ${d}`).join("\n")
       : "";
 
@@ -65,10 +65,10 @@ export async function runSmartWriterAgent(
     `Sự kiện trước đó (rút gọn): ${ellipsis(contextOutput.previousEvents, 1200)}`,
     `Tiến trình cốt truyện: ${contextOutput.plotProgress}`,
     `Tuyến chưa giải quyết: ${unresolved}`,
-    `Trạng thái nhân vật (rút gọn): ${contextOutput.characterStates
+    `Trạng thái nhân vật (rút gọn): ${(contextOutput.characterStates ?? [])
       .slice(0, 8)
       .map((c) => `${c.name}: ${c.currentState}`)
-      .join("; ")}${contextOutput.characterStates.length > 8 ? "…" : ""}`,
+      .join("; ")}${(contextOutput.characterStates ?? []).length > 8 ? "…" : ""}`,
     `Thế giới (rút gọn): ${ellipsis(contextOutput.worldState, 800)}`,
   ].join("\n");
 
@@ -77,9 +77,9 @@ export async function runSmartWriterAgent(
       (s, i) =>
         `### Phân cảnh ${i + 1}: ${s.title}
 Tóm tắt: ${s.summary}
-Nhân vật: ${s.characters.join(", ")}
+Nhân vật: ${(s.characters ?? []).join(", ")}
 ${s.location ? `Địa điểm: ${s.location}` : ""}
-Sự kiện: ${s.keyEvents.join("; ")}
+Sự kiện: ${(s.keyEvents ?? []).join("; ")}
 Tâm trạng: ${s.mood}
 Số từ: ~${s.wordCountTarget} từ`,
     )

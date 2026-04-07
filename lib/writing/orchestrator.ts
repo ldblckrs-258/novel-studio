@@ -44,6 +44,10 @@ export interface WritingPipelineOptions {
   onWriterActivity?: (label: string) => void;
   /** Ephemeral user instructions per pipeline step (not persisted). */
   stepUserInstructions?: Partial<Record<WritingAgentRole, string>>;
+  /** Pre-selected arc IDs for direction generation (empty = all active). */
+  directionArcIds?: string[];
+  /** Pre-selected character IDs for direction generation (empty = all). */
+  directionCharacterIds?: string[];
   /**
    * When true, run context→direction→outline→writer→review without interactive pauses
    * (except errors). Overrides WritingSettings.noAskingMode when set.
@@ -428,12 +432,34 @@ export async function runWritingPipeline(
             .where("novelId")
             .equals(novelId)
             .toArray();
+          const activeArcs = plotArcs.filter((a) => a.status === "active");
+          const filteredArcs =
+            options.directionArcIds?.length
+              ? activeArcs.filter((a) => options.directionArcIds!.includes(a.id))
+              : activeArcs;
+
+          // Filter characters for context if user pre-selected
+          if (options.directionCharacterIds?.length) {
+            const selectedNames = new Set<string>();
+            const chars = await db.characters
+              .where("novelId")
+              .equals(novelId)
+              .toArray();
+            for (const c of chars) {
+              if (options.directionCharacterIds.includes(c.id))
+                selectedNames.add(c.name);
+            }
+            contextOutput.characterStates = (
+              contextOutput.characterStates ?? []
+            ).filter((cs) => selectedNames.has(cs.name));
+          }
 
           const directionOutput = await runDirectionAgent(
             contextOutput,
-            plotArcs,
+            filteredArcs,
             configWithUser,
             chapterPlan.chapterOrder,
+            chapterPlan,
           );
           await writeStepResult(
             sessionId,
