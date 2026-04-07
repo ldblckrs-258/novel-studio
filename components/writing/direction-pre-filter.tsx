@@ -62,8 +62,8 @@ export function DirectionPreFilter({ novelId }: { novelId: string }) {
               Mạch truyện ({selectedArcIds.length || "tất cả"})
             </Label>
           </div>
-          <ScrollArea className="max-h-[160px]">
-            <div className="space-y-1">
+          <ScrollArea className="h-[160px]">
+            <div className="space-y-1 pr-3">
               {activeArcs.map((arc) => (
                 <ArcItem
                   key={arc.id}
@@ -87,8 +87,8 @@ export function DirectionPreFilter({ novelId }: { novelId: string }) {
               Nhân vật ({selectedCharIds.length || "tất cả"})
             </Label>
           </div>
-          <ScrollArea className="max-h-[160px]">
-            <div className="flex flex-wrap gap-1.5">
+          <ScrollArea className="h-[120px]">
+            <div className="flex flex-wrap gap-1.5 pr-3">
               {characters.map((c) => (
                 <CharacterChip
                   key={c.id}
@@ -119,23 +119,23 @@ function ArcItem({
   return (
     <label
       className={cn(
-        "flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2 transition-colors",
+        "flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2 transition-colors overflow-hidden",
         checked ? "border-primary bg-primary/5" : "hover:bg-muted/50",
       )}
     >
       <Checkbox
         checked={checked}
         onCheckedChange={onToggle}
-        className="mt-0.5"
+        className="mt-0.5 shrink-0"
       />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 overflow-hidden">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium truncate">{arc.title}</span>
+          <span className="text-xs font-medium truncate min-w-0">{arc.title}</span>
           <Badge variant="secondary" className={cn("text-[10px] shrink-0", typeColor)}>
             {arc.type}
           </Badge>
         </div>
-        <p className="text-[11px] text-muted-foreground line-clamp-1">
+        <p className="text-[11px] text-muted-foreground truncate">
           {arc.description}
         </p>
       </div>
@@ -157,7 +157,7 @@ function CharacterChip({
       type="button"
       onClick={onToggle}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors max-w-full",
         checked
           ? "border-primary bg-primary/10 text-primary"
           : "text-muted-foreground hover:bg-muted/50",
@@ -165,12 +165,12 @@ function CharacterChip({
     >
       <span
         className={cn(
-          "h-1.5 w-1.5 rounded-full",
+          "h-1.5 w-1.5 rounded-full shrink-0",
           checked ? "bg-primary" : "bg-muted-foreground/40",
         )}
       />
-      {character.name}
-      <span className="text-[10px] opacity-60">({character.role})</span>
+      <span className="truncate">{character.name}</span>
+      <span className="text-[10px] opacity-60 shrink-0">({character.role})</span>
     </button>
   );
 }

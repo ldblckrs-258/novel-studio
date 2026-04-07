@@ -966,7 +966,7 @@ export default function AutoWritePage() {
                       (sessionNeedsResume &&
                         activeSession?.currentStep === "direction" &&
                         resultMap.get("direction")?.status !== "completed") ? (
-                        <div className="space-y-4 max-w-lg mx-auto">
+                        <div className="space-y-4 mx-auto max-w-lg">
                           <DirectionPreFilter novelId={novelId} />
                           <PipelineStepConfig
                             novelId={novelId}
