@@ -19,7 +19,7 @@ import {
   useNovel,
   usePlotArcs,
 } from "@/lib/hooks";
-import type { WritingAgentRole } from "@/lib/db";
+import type { WritingAgentRole, WritingSettings } from "@/lib/db";
 import { db } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import {
@@ -50,41 +50,46 @@ import { toast } from "sonner";
 import { PipelineStepConfig } from "./pipeline-step-config";
 import type { IdeaFormData } from "./idea-form";
 import { useWritingPipelineStore } from "@/lib/stores/writing-pipeline";
-import { getDefaultPrompt } from "@/lib/writing/prompts";
+import {
+  getDefaultSetupPrompt,
+  SETUP_PROMPT_KEYS,
+  type SetupStep,
+} from "@/lib/writing/auto-generate-prompts";
 
-type WizardStep = "world" | "characters" | "arcs" | "plans";
+/** Model configs still reuse pipeline roles for model selection */
+const SETUP_MODEL_ROLES: Record<SetupStep, WritingAgentRole> = {
+  world: "context",
+  characters: "direction",
+  arcs: "outline",
+  plans: "writer",
+};
 
 const STEPS: {
-  key: WizardStep;
-  agentRole: WritingAgentRole;
+  key: SetupStep;
   label: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
 }[] = [
   {
     key: "world",
-    agentRole: "context",
     label: "Thế giới quan",
     description: "Xây dựng bối cảnh, thế lực, địa danh và quy tắc",
     icon: GlobeIcon,
   },
   {
     key: "characters",
-    agentRole: "direction",
     label: "Nhân vật",
     description: "Tạo nhân vật với tính cách, động lực và mục tiêu",
     icon: UsersIcon,
   },
   {
     key: "arcs",
-    agentRole: "outline",
     label: "Mạch truyện",
     description: "Thiết lập mạch chính, phụ và các điểm mốc",
     icon: MapIcon,
   },
   {
     key: "plans",
-    agentRole: "writer",
     label: "Kế hoạch chương",
     description: "Lên kế hoạch cho các chương đầu tiên",
     icon: BookOpenIcon,
@@ -102,9 +107,9 @@ export function SetupWizard({
   novelId: string;
   ideaData: IdeaFormData;
   onCompleteAction: () => void;
-  startAtStep?: WizardStep;
+  startAtStep?: SetupStep;
 }) {
-  const [currentStep, setCurrentStep] = useState<WizardStep>(
+  const [currentStep, setCurrentStep] = useState<SetupStep>(
     startAtStep ?? "world",
   );
   const [isGenerating, setIsGenerating] = useState(false);
@@ -129,7 +134,7 @@ export function SetupWizard({
   const wizardInstructionKey = `wizard:${currentStep}`;
 
   const isStepDone = useCallback(
-    (step: WizardStep) => {
+    (step: SetupStep) => {
       switch (step) {
         case "world":
           return !!(novel?.worldOverview || novel?.factions?.length);
@@ -168,10 +173,9 @@ export function SetupWizard({
     abortRef.current = controller;
 
     const ws = await getOrCreateWritingSettings(novelId);
-    const role = stepDef.agentRole;
-    const promptKey = `${role}Prompt` as const;
-    const systemPrompt =
-      (ws[promptKey] as string | undefined) ?? getDefaultPrompt(role);
+    const promptKey = SETUP_PROMPT_KEYS[currentStep] as keyof WritingSettings;
+    // Only pass systemPrompt if user has customized it; otherwise let auto-generate use its own defaults
+    const systemPrompt = (ws[promptKey] as string | undefined) ?? undefined;
     const userInstruction =
       useWritingPipelineStore.getState().stepUserInstructions[
         wizardInstructionKey
@@ -452,7 +456,7 @@ export function SetupWizard({
 
         <PipelineStepConfig
           novelId={novelId}
-          role={stepDef.agentRole}
+          role={SETUP_MODEL_ROLES[currentStep]}
           instructionKey={wizardInstructionKey}
           title={`Cấu hình: ${stepDef.label}`}
           description="Điều chỉnh mô hình, yêu cầu của bạn và system prompt (mở rộng) trước khi tạo."
@@ -463,6 +467,8 @@ export function SetupWizard({
           }
           onRun={handleGenerate}
           disabled={isGenerating}
+          promptKeyOverride={SETUP_PROMPT_KEYS[currentStep]}
+          defaultPromptOverride={getDefaultSetupPrompt(currentStep)}
         />
 
         {isGenerating && (

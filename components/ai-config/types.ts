@@ -8,6 +8,10 @@ export type ConfigItemId =
   | "chapter-review"
   | "chapter-rewrite"
   | "autowrite-setup"
+  | "autowrite-world"
+  | "autowrite-characters"
+  | "autowrite-arcs"
+  | "autowrite-plans"
   | "autowrite-context"
   | "autowrite-direction"
   | "autowrite-outline"
@@ -64,6 +68,10 @@ export const TREE_STRUCTURE: TreeNode[] = [
         label: "Cài đặt",
         children: [
           { type: "leaf", id: "autowrite-setup", label: "Pipeline" },
+          { type: "leaf", id: "autowrite-world", label: "Thế giới quan" },
+          { type: "leaf", id: "autowrite-characters", label: "Nhân vật" },
+          { type: "leaf", id: "autowrite-arcs", label: "Mạch truyện" },
+          { type: "leaf", id: "autowrite-plans", label: "Kế hoạch chương" },
         ],
       },
       {

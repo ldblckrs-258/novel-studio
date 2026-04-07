@@ -1,5 +1,40 @@
 // ─── Auto-Generate Framework System Prompts ─────────────────
 
+export type SetupStep = "world" | "characters" | "arcs" | "plans";
+
+/** Prompt field key in WritingSettings for each setup step */
+export const SETUP_PROMPT_KEYS: Record<SetupStep, string> = {
+  world: "worldBuildingPrompt",
+  characters: "characterGenPrompt",
+  arcs: "plotArcPrompt",
+  plans: "chapterPlanPrompt",
+};
+
+/** Model field key in WritingSettings for each setup step — reuses pipeline model configs */
+export const SETUP_MODEL_KEYS: Record<SetupStep, string> = {
+  world: "contextModel",
+  characters: "directionModel",
+  arcs: "outlineModel",
+  plans: "writerModel",
+};
+
+/** Get the default system prompt for a setup wizard step */
+export function getDefaultSetupPrompt(
+  step: SetupStep,
+  chapterCount = 8,
+): string {
+  switch (step) {
+    case "world":
+      return DEFAULT_WORLD_BUILDING_SYSTEM;
+    case "characters":
+      return DEFAULT_CHARACTER_GENERATION_SYSTEM;
+    case "arcs":
+      return DEFAULT_PLOT_ARC_SYSTEM;
+    case "plans":
+      return buildChapterPlanSystem(chapterCount);
+  }
+}
+
 export const DEFAULT_WORLD_BUILDING_SYSTEM = `<role>
 Bạn là nhà xây dựng thế giới chuyên nghiệp cho tiểu thuyết. Nhiệm vụ của bạn là tạo thế giới quan chi tiết, nhất quán và hấp dẫn từ ý tưởng ban đầu.
 </role>
@@ -56,7 +91,7 @@ Bạn là nhà văn chuyên lập kế hoạch tiểu thuyết. Nhiệm vụ c�
 </role>
 
 <task>
-Tạo kế hoạch cho ${chapterCount} chương đầu tiên. Mỗi chương cần tiêu đề gợi cảm và 2–3 hướng đi chính cho nội dung.
+Tạo kế hoạch cho ${chapterCount} chương tiếp theo. Mỗi chương cần tiêu đề gợi cảm và 2–3 hướng đi chính cho nội dung.
 </task>
 
 <chapter_plan_requirements>

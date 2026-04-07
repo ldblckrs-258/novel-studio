@@ -468,6 +468,11 @@ export interface WritingSettings {
   writerPrompt?: string;
   reviewPrompt?: string;
   rewritePrompt?: string;
+  // Setup wizard step prompts (auto-generate framework)
+  worldBuildingPrompt?: string;
+  characterGenPrompt?: string;
+  plotArcPrompt?: string;
+  chapterPlanPrompt?: string;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -109,6 +109,8 @@ export function PipelineStepConfig({
   runLabel,
   onRun,
   disabled,
+  promptKeyOverride,
+  defaultPromptOverride,
 }: {
   novelId: string;
   role: WritingAgentRole;
@@ -118,10 +120,14 @@ export function PipelineStepConfig({
   runLabel: string;
   onRun: () => void;
   disabled?: boolean;
+  /** Override the WritingSettings field key for the system prompt (e.g. "worldBuildingPrompt") */
+  promptKeyOverride?: string;
+  /** Override the default prompt instead of using getDefaultPrompt(role) */
+  defaultPromptOverride?: string;
 }) {
   const settings = useWritingSettings(novelId);
-  const promptKey = `${role}Prompt` as const;
-  const defaultPrompt = getDefaultPrompt(role);
+  const promptKey = (promptKeyOverride ?? `${role}Prompt`) as keyof typeof settings & string;
+  const defaultPrompt = defaultPromptOverride ?? getDefaultPrompt(role);
   const isCustom = !!(settings?.[promptKey] as string | undefined);
 
   const debouncedPromptChange = useDebouncedCallback(async (value: string) => {

@@ -34,6 +34,12 @@ import {
 } from "@/lib/hooks";
 import { useDebouncedCallback } from "@/lib/hooks/use-debounce";
 import { cn } from "@/lib/utils";
+import {
+  getDefaultSetupPrompt,
+  SETUP_MODEL_KEYS,
+  SETUP_PROMPT_KEYS,
+  type SetupStep,
+} from "@/lib/writing/auto-generate-prompts";
 import { getDefaultPrompt } from "@/lib/writing/prompts";
 import { useCallback, useEffect, useState } from "react";
 import { PromptEditor } from "./prompt-editor";
@@ -809,6 +815,131 @@ function AutowriteAgentEditor({ item }: { item: ConfigItemId }) {
   );
 }
 
+// ─── Auto-write setup step editor (world, characters, arcs, plans) ──
+
+const SETUP_STEP_MAP: Partial<Record<ConfigItemId, SetupStep>> = {
+  "autowrite-world": "world",
+  "autowrite-characters": "characters",
+  "autowrite-arcs": "arcs",
+  "autowrite-plans": "plans",
+};
+
+const SETUP_STEP_LABEL: Record<
+  SetupStep,
+  { title: string; description: string }
+> = {
+  world: {
+    title: "Thế giới quan",
+    description: "Xây dựng bối cảnh, thế lực, địa danh và quy tắc thế giới.",
+  },
+  characters: {
+    title: "Nhân vật",
+    description: "Tạo nhân vật với tính cách, động lực và mục tiêu.",
+  },
+  arcs: {
+    title: "Mạch truyện",
+    description: "Thiết lập mạch chính, phụ và các điểm mốc.",
+  },
+  plans: {
+    title: "Kế hoạch chương",
+    description: "Lên kế hoạch tiêu đề và hướng đi cho các chương đầu tiên.",
+  },
+};
+
+function AutowriteSetupStepEditor({ item }: { item: ConfigItemId }) {
+  const step = SETUP_STEP_MAP[item];
+  const settings = useWritingSettings(GLOBAL_DEFAULT_ID);
+  const { saved, show } = useSaveIndicator();
+
+  const promptKey = step ? SETUP_PROMPT_KEYS[step] : undefined;
+  const modelKey = step ? SETUP_MODEL_KEYS[step] : undefined;
+  const defaultPrompt = step ? getDefaultSetupPrompt(step) : "";
+  const modelValue = modelKey
+    ? (settings?.[modelKey as keyof typeof settings] as
+        | StepModelConfig
+        | undefined)
+    : undefined;
+  const customPrompt = promptKey
+    ? (settings?.[promptKey as keyof typeof settings] as string | undefined)
+    : undefined;
+  const isCustom = !!customPrompt?.trim();
+  const [localPrompt, setLocalPrompt] = useState(
+    customPrompt?.trim() || defaultPrompt,
+  );
+
+  useEffect(() => {
+    const next = customPrompt?.trim() || defaultPrompt;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLocalPrompt(next);
+  }, [customPrompt, defaultPrompt, item, step]);
+
+  const savePrompt = useDebouncedCallback((v: string) => {
+    if (!promptKey) return;
+    const trimmed = v.trim();
+    const next = trimmed === defaultPrompt ? undefined : trimmed || undefined;
+    void upsertGlobalWritingSettings({
+      [promptKey]: next,
+    })
+      .then(() => {
+        show();
+      })
+      .catch(() => undefined);
+  }, 600);
+
+  useEffect(() => {
+    return () => savePrompt.flush();
+  }, [savePrompt]);
+
+  if (!step) return null;
+
+  const info = SETUP_STEP_LABEL[step];
+
+  const handleModelChange = (value: StepModelConfig | undefined) => {
+    if (!modelKey) return;
+    void upsertGlobalWritingSettings({ [modelKey]: value })
+      .then(() => {
+        show();
+      })
+      .catch(() => undefined);
+  };
+
+  const handleResetPrompt = () => {
+    if (!promptKey) return;
+    setLocalPrompt(defaultPrompt);
+    void upsertGlobalWritingSettings({ [promptKey]: undefined })
+      .then(() => {
+        show();
+      })
+      .catch(() => undefined);
+  };
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader
+        title={info.title}
+        description={info.description}
+        saved={saved}
+      />
+      <div className="space-y-1.5">
+        <Label className="text-xs font-medium">Mô hình AI</Label>
+        <StepModelPicker value={modelValue} onChange={handleModelChange} />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs font-medium">System Prompt</Label>
+        <PromptEditor
+          value={localPrompt}
+          onChange={(v) => {
+            setLocalPrompt(v);
+            savePrompt.run(v);
+          }}
+          onReset={handleResetPrompt}
+          isCustom={isCustom}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ─── Main router ─────────────────────────────────────────────
 
 export function ConfigEditor({ item }: { item: ConfigItemId }) {
@@ -828,6 +959,11 @@ export function ConfigEditor({ item }: { item: ConfigItemId }) {
         return <ChapterToolEditor item={item} />;
       case "autowrite-setup":
         return <AutowriteSetupEditor />;
+      case "autowrite-world":
+      case "autowrite-characters":
+      case "autowrite-arcs":
+      case "autowrite-plans":
+        return <AutowriteSetupStepEditor item={item} />;
       case "autowrite-context":
       case "autowrite-direction":
       case "autowrite-outline":
