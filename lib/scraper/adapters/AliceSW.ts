@@ -125,7 +125,7 @@ function cleanChapterText(s: string): string {
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line && !/^[-—＿_]{3,}$/.test(line))
-    .join("\n")
+    .join("\n\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
