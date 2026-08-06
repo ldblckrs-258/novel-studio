@@ -11,7 +11,7 @@ const UUKANSHU_CHAPTER_BODY =
   ".read .readcontent, .read .readcotent, #contentbox";
 
 export const UukanshuAdapter: SiteAdapter = {
-  name: "UU看書",
+  name: "UU看書(Uukanshu)",
   urlPattern: /uukanshu\.cc/i,
   chapterWaitSelector: UUKANSHU_CHAPTER_BODY,
 
@@ -22,8 +22,12 @@ export const UukanshuAdapter: SiteAdapter = {
 
     const title =
       cleanBookTitle(
-        doc.querySelector('meta[property="og:novel:book_name"]')?.getAttribute("content") ??
-          doc.querySelector('meta[property="og:title"]')?.getAttribute("content") ??
+        doc
+          .querySelector('meta[property="og:novel:book_name"]')
+          ?.getAttribute("content") ??
+          doc
+            .querySelector('meta[property="og:title"]')
+            ?.getAttribute("content") ??
           doc.querySelector("dd.jieshao_content > h1 > a")?.textContent ??
           doc.querySelector("title")?.textContent ??
           "",
@@ -32,25 +36,37 @@ export const UukanshuAdapter: SiteAdapter = {
       "";
 
     const author =
-      doc.querySelector('meta[property="og:novel:author"]')?.getAttribute("content")?.trim() ||
+      doc
+        .querySelector('meta[property="og:novel:author"]')
+        ?.getAttribute("content")
+        ?.trim() ||
       doc.querySelector("dd.jieshao_content > h2 > a")?.textContent?.trim() ||
-      doc.querySelector('p.booktag a[href*="authorarticle"]')?.textContent?.trim() ||
+      doc
+        .querySelector('p.booktag a[href*="authorarticle"]')
+        ?.textContent?.trim() ||
       doc.querySelector("p.booktag a.red")?.textContent?.trim() ||
       undefined;
 
     const rawDesc =
-      doc.querySelector('meta[property="og:description"]')?.getAttribute("content")?.trim() ??
+      doc
+        .querySelector('meta[property="og:description"]')
+        ?.getAttribute("content")
+        ?.trim() ??
       doc.querySelector("dd.jieshao_content > h3")?.textContent?.trim();
-    const description = rawDesc ? cleanIntro(stripMetaHtml(rawDesc)) : undefined;
+    const description = rawDesc
+      ? cleanIntro(stripMetaHtml(rawDesc))
+      : undefined;
 
     const rawCover =
-      doc.querySelector('meta[property="og:image"]')?.getAttribute("content")?.trim() ||
+      doc
+        .querySelector('meta[property="og:image"]')
+        ?.getAttribute("content")
+        ?.trim() ||
       doc.querySelector("a.bookImg img")?.getAttribute("src") ||
       "";
     const coverImage = rawCover ? new URL(rawCover, base).href : undefined;
 
-    const chapters =
-      bookId ? extractChapterLinks(doc, base, bookId) : [];
+    const chapters = bookId ? extractChapterLinks(doc, base, bookId) : [];
 
     return { title, author, description, coverImage, chapters };
   },
@@ -87,10 +103,17 @@ function cleanBookTitle(raw: string): string {
 }
 
 function stripMetaHtml(s: string): string {
-  return new DOMParser().parseFromString(s, "text/html").body.textContent?.trim() ?? s;
+  return (
+    new DOMParser().parseFromString(s, "text/html").body.textContent?.trim() ??
+    s
+  );
 }
 
-function extractChapterLinks(doc: Document, base: URL, bookId: string): ChapterLink[] {
+function extractChapterLinks(
+  doc: Document,
+  base: URL,
+  bookId: string,
+): ChapterLink[] {
   const root =
     doc.querySelector("#list-chapterAll") ??
     doc.querySelector("dl.book.chapterlist") ??
