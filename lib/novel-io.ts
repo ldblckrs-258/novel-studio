@@ -130,15 +130,71 @@ export async function exportNovel(
   };
 }
 
-export function downloadNovelJson(data: NovelExportData) {
-  const json = JSON.stringify(data, null, 2);
-  const blob = new Blob([json], { type: "application/json" });
+function safeFileName(title: string) {
+  return title.replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF ]/g, "_");
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${data.novel.title.replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF ]/g, "_")}.novel.json`;
+  a.download = fileName;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export function downloadNovelJson(data: NovelExportData) {
+  const json = JSON.stringify(data, null, 2);
+  downloadBlob(
+    new Blob([json], { type: "application/json" }),
+    `${safeFileName(data.novel.title)}.novel.json`,
+  );
+}
+
+// \u2500\u2500\u2500 Plain text export \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+const CHAPTER_HEADING_RE = /^ch\u01B0\u01A1ng\s+\d+/i;
+
+function chapterHeading(title: string, position: number) {
+  const trimmed = title.trim();
+  if (CHAPTER_HEADING_RE.test(trimmed)) return trimmed;
+  return `Ch\u01B0\u01A1ng ${position}. ${trimmed}`;
+}
+
+export async function exportNovelTxt(novelId: string): Promise<string> {
+  const novel = await db.novels.get(novelId);
+  if (!novel) throw new Error("Novel not found");
+
+  const [chapters, scenes] = await Promise.all([
+    db.chapters.where("novelId").equals(novelId).sortBy("order"),
+    db.scenes.where("[novelId+isActive]").equals([novelId, 1]).toArray(),
+  ]);
+
+  const scenesByChapter = new Map<string, Scene[]>();
+  for (const scene of scenes) {
+    const list = scenesByChapter.get(scene.chapterId);
+    if (list) list.push(scene);
+    else scenesByChapter.set(scene.chapterId, [scene]);
+  }
+
+  return chapters
+    .map((chapter, index) => {
+      const content = (scenesByChapter.get(chapter.id) ?? [])
+        .sort((a, b) => a.order - b.order)
+        .map((scene) => scene.content.trim())
+        .filter(Boolean)
+        .join("\n\n");
+      const heading = chapterHeading(chapter.title, index + 1);
+      return content ? `${heading}\n\n${content}` : heading;
+    })
+    .join("\n\n");
+}
+
+export function downloadNovelTxt(title: string, text: string) {
+  downloadBlob(
+    new Blob([text], { type: "text/plain;charset=utf-8" }),
+    `${safeFileName(title)}.txt`,
+  );
 }
 
 // ─── Import ─────────────────────────────────────────────────

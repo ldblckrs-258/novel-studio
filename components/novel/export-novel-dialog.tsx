@@ -11,10 +11,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   DEFAULT_EXPORT_SELECTION,
   downloadNovelJson,
+  downloadNovelTxt,
   exportNovel,
+  exportNovelTxt,
   type ExportSelection,
 } from "@/lib/novel-io";
 import { useState } from "react";
@@ -62,6 +65,7 @@ export function ExportNovelDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const [format, setFormat] = useState<"json" | "txt">("json");
   const [selection, setSelection] = useState<ExportSelection>(
     DEFAULT_EXPORT_SELECTION,
   );
@@ -70,14 +74,23 @@ export function ExportNovelDialog({
   const toggle = (key: keyof ExportSelection) =>
     setSelection((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const nothingSelected = GROUPS.every((g) => !selection[g.key]);
+  const nothingSelected = format === "json" && GROUPS.every((g) => !selection[g.key]);
 
   const handleExport = async () => {
     if (!novel) return;
     setIsExporting(true);
     try {
-      const data = await exportNovel(novel.id, selection);
-      downloadNovelJson(data);
+      if (format === "txt") {
+        const text = await exportNovelTxt(novel.id);
+        if (!text.trim()) {
+          toast.error("Truyện chưa có nội dung chương để xuất.");
+          return;
+        }
+        downloadNovelTxt(novel.title, text);
+      } else {
+        const data = await exportNovel(novel.id, selection);
+        downloadNovelJson(data);
+      }
       toast.success(`Đã xuất "${novel.title}"`);
       onOpenChange(false);
     } catch {
@@ -93,11 +106,40 @@ export function ExportNovelDialog({
         <DialogHeader>
           <DialogTitle>Xuất tiểu thuyết</DialogTitle>
           <DialogDescription>
-            Chọn dữ liệu muốn đưa vào tệp JSON.
+            Chọn định dạng và dữ liệu muốn xuất.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <RadioGroup
+          value={format}
+          onValueChange={(value) => setFormat(value as "json" | "txt")}
+          className="gap-3"
+        >
+          <div className="flex items-start gap-3">
+            <RadioGroupItem value="json" id="format-json" className="mt-0.5" />
+            <div className="grid gap-0.5">
+              <Label htmlFor="format-json" className="font-medium">
+                JSON
+              </Label>
+              <span className="text-xs text-muted-foreground">
+                Tệp đầy đủ, có thể nhập lại vào Novel Studio.
+              </span>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <RadioGroupItem value="txt" id="format-txt" className="mt-0.5" />
+            <div className="grid gap-0.5">
+              <Label htmlFor="format-txt" className="font-medium">
+                Văn bản (.txt)
+              </Label>
+              <span className="text-xs text-muted-foreground">
+                Chỉ nội dung chương, nối theo thứ tự đọc.
+              </span>
+            </div>
+          </div>
+        </RadioGroup>
+
+        <div className={format === "json" ? "space-y-3" : "hidden"}>
           {GROUPS.map((g) => (
             <div key={g.key}>
               <div className="flex items-start gap-3">
@@ -143,7 +185,11 @@ export function ExportNovelDialog({
             onClick={handleExport}
             disabled={isExporting || nothingSelected}
           >
-            {isExporting ? "Đang xuất..." : "Xuất JSON"}
+            {isExporting
+              ? "Đang xuất..."
+              : format === "txt"
+                ? "Xuất TXT"
+                : "Xuất JSON"}
           </Button>
         </DialogFooter>
       </DialogContent>
